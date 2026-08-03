@@ -5,6 +5,7 @@ import './App.css'
 export default function App() {
   const [name, setName] = useState('')
   const [message, setMessage] = useState('')
+  const [website, setWebsite] = useState('') // Honeypot field (hidden from humans)
   const [loading, setLoading] = useState(false)
   const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -45,6 +46,14 @@ export default function App() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+
+    // Honeypot check: if filled, silently reject bot submission
+    if (website) {
+      setStatus({ type: 'success', text: 'Message posted successfully!' })
+      setWebsite('')
+      return
+    }
+
     if (!name.trim() || !message.trim()) {
       setStatus({ type: 'error', text: 'Please fill in both name and message.' })
       return
@@ -96,6 +105,20 @@ export default function App() {
         <section className="card form-card">
           <h2>Send a Message</h2>
           <form onSubmit={handleSubmit} className="message-form">
+            {/* Honeypot field - invisible to human users */}
+            <div className="hp-field" aria-hidden="true" style={{ display: 'none' }}>
+              <label htmlFor="website">Website</label>
+              <input
+                id="website"
+                type="text"
+                name="website"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+              />
+            </div>
+
             <div className="form-group">
               <label htmlFor="name">Name ({name.length}/100)</label>
               <input
