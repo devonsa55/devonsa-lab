@@ -53,6 +53,16 @@ export default function App() {
       return
     }
 
+    if (name.length > 100) {
+      setStatus({ type: 'error', text: 'Name must be 100 characters or fewer.' })
+      return
+    }
+
+    if (message.length > 500) {
+      setStatus({ type: 'error', text: 'Message must be 500 characters or fewer.' })
+      return
+    }
+
     setLoading(true)
     setStatus(null)
 
@@ -90,26 +100,28 @@ export default function App() {
           <h2>Send a Message</h2>
           <form onSubmit={handleSubmit} className="message-form">
             <div className="form-group">
-              <label htmlFor="name">Name</label>
+              <label htmlFor="name">Name ({name.length}/100)</label>
               <input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your name"
+                maxLength={100}
                 disabled={loading}
                 required
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="message">Message</label>
+              <label htmlFor="message">Message ({message.length}/500)</label>
               <textarea
                 id="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 placeholder="Type your message..."
                 rows={4}
+                maxLength={500}
                 disabled={loading}
                 required
               />
