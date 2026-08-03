@@ -77,117 +77,141 @@ export default function App() {
         .from('messages')
         .insert([{ name: name.trim(), message: message.trim() }])
 
-      if (error) {
-        throw error
-      }
+      if (error) throw error
 
       setStatus({ type: 'success', text: 'Message posted successfully!' })
       setName('')
       setMessage('')
       fetchMessages()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Submit error:', err)
-      setStatus({ type: 'error', text: err.message || 'Failed to submit message.' })
+      const msg = err instanceof Error ? err.message : 'Failed to submit message.'
+      setStatus({ type: 'error', text: msg })
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="container">
-      <header className="header">
-        <div className="badge">Supabase Connected</div>
-        <h1>Lab Messages</h1>
-        <p className="subtitle">Submit a message to your Supabase <code>messages</code> table.</p>
-      </header>
+    <div className="page">
+      {/* Animated background blobs */}
+      <div className="blob blob-1" />
+      <div className="blob blob-2" />
 
-      <main className="main-content">
-        <section className="card form-card">
-          <h2>Send a Message</h2>
-          <form onSubmit={handleSubmit} className="message-form">
-            {/* Honeypot field - invisible to human users */}
-            <div className="hp-field" aria-hidden="true" style={{ display: 'none' }}>
-              <label htmlFor="website">Website</label>
-              <input
-                id="website"
-                type="text"
-                name="website"
-                value={website}
-                onChange={(e) => setWebsite(e.target.value)}
-                tabIndex={-1}
-                autoComplete="off"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="name">Name ({name.length}/100)</label>
-              <input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your name"
-                maxLength={100}
-                disabled={loading}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="message">Message ({message.length}/500)</label>
-              <textarea
-                id="message"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                placeholder="Type your message..."
-                rows={4}
-                maxLength={500}
-                disabled={loading}
-                required
-              />
-            </div>
-
-            {status && (
-              <div className={`alert ${status.type}`}>
-                {status.text}
-              </div>
-            )}
-
-            <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Sending...' : 'Send Message'}
-            </button>
-          </form>
-        </section>
-
-        <section className="card list-card">
-          <div className="list-header">
-            <h2>Recent Messages</h2>
-            <button onClick={fetchMessages} className="refresh-btn" title="Refresh messages">
-              ↻ Refresh
-            </button>
+      <div className="container">
+        {/* ── Header ── */}
+        <header className="header">
+          <div className="header-left">
+            <h1>Devon's Lab.</h1>
+            <p className="subtitle">
+              Leave a message — it goes straight into{' '}
+              <code>public.messages</code> via Supabase.
+            </p>
           </div>
 
-          {fetching ? (
-            <div className="loading-state">Loading messages...</div>
-          ) : messages.length === 0 ? (
-            <div className="empty-state">No messages yet. Be the first to leave one!</div>
-          ) : (
-            <div className="message-list">
-              {messages.map((msg) => (
-                <div key={msg.id} className="message-item">
-                  <div className="message-header">
-                    <span className="author">{msg.name || 'Anonymous'}</span>
-                    <span className="timestamp">
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </div>
-                  <p className="body">{msg.message}</p>
+          <div className="status-badge">
+            <span className="pulsing-dot" />
+            Supabase Live
+          </div>
+        </header>
+
+        {/* ── Main ── */}
+        <main className="main-content">
+          {/* Form card */}
+          <section className="card form-card">
+            <h2>Send a Message</h2>
+
+            <form onSubmit={handleSubmit} className="message-form">
+              {/* Honeypot – hidden from humans, bait for bots */}
+              <div aria-hidden="true" style={{ display: 'none' }}>
+                <label htmlFor="website">Website</label>
+                <input
+                  id="website"
+                  type="text"
+                  name="website"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  tabIndex={-1}
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="name">Name ({name.length}/100)</label>
+                <input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  maxLength={100}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="message">Message ({message.length}/500)</label>
+                <textarea
+                  id="message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="What's on your mind?"
+                  rows={5}
+                  maxLength={500}
+                  disabled={loading}
+                  required
+                />
+              </div>
+
+              {status && (
+                <div className={`alert ${status.type}`}>
+                  {status.text}
                 </div>
-              ))}
+              )}
+
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'Sending…' : 'Send Message'}
+              </button>
+            </form>
+          </section>
+
+          {/* Messages list card */}
+          <section className="card list-card">
+            <div className="list-header">
+              <h2>Recent Messages</h2>
+              <button onClick={fetchMessages} className="refresh-btn" title="Refresh">
+                ↻ Refresh
+              </button>
             </div>
-          )}
-        </section>
-      </main>
+
+            {fetching ? (
+              <div className="loading-state">Loading messages…</div>
+            ) : messages.length === 0 ? (
+              <div className="empty-state">No messages yet. Be the first!</div>
+            ) : (
+              <div className="message-list">
+                {messages.map((msg) => (
+                  <div key={msg.id} className="message-item">
+                    <div className="message-header">
+                      <span className="author">{msg.name}</span>
+                      <span className="timestamp">
+                        {new Date(msg.created_at).toLocaleString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                    <p className="body">{msg.message}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        </main>
+      </div>
     </div>
   )
 }
