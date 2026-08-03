@@ -1,122 +1,161 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useState, useEffect, type FormEvent } from 'react'
+import { supabase, type Message } from './lib/supabase'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [name, setName] = useState('')
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [status, setStatus] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [fetching, setFetching] = useState(true)
+
+  // Fetch messages from Supabase
+  const fetchMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error fetching messages:', error)
+      } else {
+        setMessages(data || [])
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching messages:', err)
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchMessages()
+
+    // Subscribe to realtime inserts
+    const channel = supabase
+      .channel('public:messages')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        setMessages((prev) => [payload.new as Message, ...prev])
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!name.trim() || !message.trim()) {
+      setStatus({ type: 'error', text: 'Please fill in both name and message.' })
+      return
+    }
+
+    setLoading(true)
+    setStatus(null)
+
+    try {
+      const { error } = await supabase
+        .from('messages')
+        .insert([{ name: name.trim(), message: message.trim() }])
+
+      if (error) {
+        throw error
+      }
+
+      setStatus({ type: 'success', text: 'Message posted successfully!' })
+      setName('')
+      setMessage('')
+      fetchMessages()
+    } catch (err: any) {
+      console.error('Submit error:', err)
+      setStatus({ type: 'error', text: err.message || 'Failed to submit message.' })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="container">
+      <header className="header">
+        <div className="badge">Supabase Connected</div>
+        <h1>Lab Messages</h1>
+        <p className="subtitle">Submit a message to your Supabase <code>messages</code> table.</p>
+      </header>
 
-      <div className="ticks"></div>
+      <main className="main-content">
+        <section className="card form-card">
+          <h2>Send a Message</h2>
+          <form onSubmit={handleSubmit} className="message-form">
+            <div className="form-group">
+              <label htmlFor="name">Name</label>
+              <input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Enter your name"
+                disabled={loading}
+                required
+              />
+            </div>
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+            <div className="form-group">
+              <label htmlFor="message">Message</label>
+              <textarea
+                id="message"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Type your message..."
+                rows={4}
+                disabled={loading}
+                required
+              />
+            </div>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+            {status && (
+              <div className={`alert ${status.type}`}>
+                {status.text}
+              </div>
+            )}
+
+            <button type="submit" className="submit-btn" disabled={loading}>
+              {loading ? 'Sending...' : 'Send Message'}
+            </button>
+          </form>
+        </section>
+
+        <section className="card list-card">
+          <div className="list-header">
+            <h2>Recent Messages</h2>
+            <button onClick={fetchMessages} className="refresh-btn" title="Refresh messages">
+              ↻ Refresh
+            </button>
+          </div>
+
+          {fetching ? (
+            <div className="loading-state">Loading messages...</div>
+          ) : messages.length === 0 ? (
+            <div className="empty-state">No messages yet. Be the first to leave one!</div>
+          ) : (
+            <div className="message-list">
+              {messages.map((msg) => (
+                <div key={msg.id} className="message-item">
+                  <div className="message-header">
+                    <span className="author">{msg.name || 'Anonymous'}</span>
+                    <span className="timestamp">
+                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <p className="body">{msg.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
   )
 }
-
-export default App
