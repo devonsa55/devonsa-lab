@@ -10,13 +10,10 @@ export default function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [fetching, setFetching] = useState(true)
 
-  // Fetch messages from Supabase
+  // Fetch messages using server-side RPC function
   const fetchMessages = async () => {
     try {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .order('created_at', { ascending: false })
+      const { data, error } = await supabase.rpc('get_safe_messages', { limit_count: 50 })
 
       if (error) {
         console.error('Error fetching messages:', error)
