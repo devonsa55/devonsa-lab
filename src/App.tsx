@@ -94,10 +94,6 @@ export default function App() {
 
   return (
     <div className="page">
-      {/* Animated background blobs */}
-      <div className="blob blob-1" />
-      <div className="blob blob-2" />
-
       <div className="container">
         {/* ── Header ── */}
         <header className="header">
