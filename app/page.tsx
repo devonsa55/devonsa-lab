@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { MerchantInsight } from "@/types/insight";
 import { MerchantCenterCard } from "@/components/MerchantCenterCard";
 import { AdsBanner } from "@/components/AdsBanner";
@@ -24,6 +24,7 @@ import {
   IconLayersLinked,
   IconCheck,
   IconAdjustmentsHorizontal,
+  IconVariable,
 } from "@tabler/icons-react";
 
 interface PresetQuery {
@@ -31,55 +32,73 @@ interface PresetQuery {
   category: string;
   focusArea: "inventory" | "pricing" | "trend";
   timeHorizon: string;
-  query: string;
 }
 
 const PRESET_QUERIES: PresetQuery[] = [
   {
-    label: "🏷️ Competitor Price War",
+    label: "🏷️ Pricing Undercut",
     category: "Consumer Electronics",
     focusArea: "pricing",
     timeHorizon: "7d",
-    query: "Key rival slashed 4K monitor prices by 18%, causing ad conversion share and margins to drop.",
   },
   {
-    label: "🔥 Viral Demand Surge",
+    label: "📦 Stockout Risk",
+    category: "Footwear & Apparel",
+    focusArea: "inventory",
+    timeHorizon: "30d",
+  },
+  {
+    label: "🔥 Viral Search Demand",
     category: "Beauty & Cosmetics",
     focusArea: "trend",
     timeHorizon: "30d",
-    query: "Influencer review drove a 340% search velocity explosion for peptide glow serum.",
   },
   {
-    label: "🚢 Supply Chain Delay",
-    category: "Apparel & Footwear",
-    focusArea: "inventory",
-    timeHorizon: "30d",
-    query: "Port congestion delayed winter jacket inventory; stock levels dropping to critical threshold.",
-  },
-  {
-    label: "📈 Search Growth Wave",
+    label: "☕ Regional Market Lift",
     category: "Specialty Coffee",
     focusArea: "trend",
     timeHorizon: "90d",
-    query: "Search interest for single-origin whole bean coffee climbed 28% across target markets.",
   },
 ];
 
 const CATEGORIES = [
   "Consumer Electronics",
-  "Apparel & Footwear",
+  "Footwear & Apparel",
   "Beauty & Cosmetics",
   "Specialty Coffee",
   "Home & Furniture",
   "Outdoor & Sports",
 ];
 
+const FOCUS_AREAS = [
+  { value: "pricing", label: "Pricing Competitiveness", actionVerb: "Analyze competitor price undercuts on" },
+  { value: "inventory", label: "Inventory & Stockouts", actionVerb: "Identify critical stockout risks for" },
+  { value: "trend", label: "Market Search Trends", actionVerb: "Forecast consumer search demand velocity for" },
+] as const;
+
 const TIME_HORIZONS = [
-  { value: "7d", label: "7 Days" },
-  { value: "30d", label: "30 Days" },
-  { value: "90d", label: "90 Days" },
-  { value: "ytd", label: "Year to Date" },
+  { value: "7d", label: "Last 7 Days", text: "over the last 7 days" },
+  { value: "30d", label: "Last 30 Days", text: "over the last 30 days" },
+  { value: "90d", label: "Last 90 Days", text: "over the last 90 days" },
+  { value: "ytd", label: "Year to Date", text: "year-to-date" },
 ];
+
+function generateQueryMessage(
+  cat: string,
+  focus: "inventory" | "pricing" | "trend",
+  horizon: string
+): string {
+  const horizonObj = TIME_HORIZONS.find((h) => h.value === horizon) || TIME_HORIZONS[0];
+  const horizonText = horizonObj.text;
+
+  if (focus === "pricing") {
+    return `Analyze competitor price undercuts across ${cat} ${horizonText} and calculate the profit margin risk.`;
+  }
+  if (focus === "inventory") {
+    return `Identify critical catalog stockout risks for top-selling ${cat} products ${horizonText} based on demand velocity.`;
+  }
+  return `Forecast consumer search demand velocity and rising query interest for ${cat} ${horizonText}.`;
+}
 
 interface McpWire {
   endpoint: string;
@@ -88,12 +107,11 @@ interface McpWire {
 }
 
 export default function DemoPage() {
-  const [merchantId, setMerchantId] = useState("merchant_8492");
   const [category, setCategory] = useState("Consumer Electronics");
   const [focusArea, setFocusArea] = useState<"inventory" | "pricing" | "trend">("pricing");
   const [timeHorizon, setTimeHorizon] = useState("7d");
   const [queryMessage, setQueryMessage] = useState(
-    "Key rival slashed 4K monitor prices by 18%, causing ad conversion share and margins to drop."
+    "Analyze competitor price undercuts across Consumer Electronics over the last 7 days and calculate the profit margin risk."
   );
 
   // Execution & result state
@@ -110,8 +128,23 @@ export default function DemoPage() {
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
 
+  // Automatically update the query message when parameter variables change
+  const handleCategoryChange = (newCat: string) => {
+    setCategory(newCat);
+    setQueryMessage(generateQueryMessage(newCat, focusArea, timeHorizon));
+  };
+
+  const handleFocusAreaChange = (newFocus: "inventory" | "pricing" | "trend") => {
+    setFocusArea(newFocus);
+    setQueryMessage(generateQueryMessage(category, newFocus, timeHorizon));
+  };
+
+  const handleTimeHorizonChange = (newHorizon: string) => {
+    setTimeHorizon(newHorizon);
+    setQueryMessage(generateQueryMessage(category, focusArea, newHorizon));
+  };
+
   const executeMcpTool = async (params: {
-    merchant_id: string;
     category: string;
     focus_area: "inventory" | "pricing" | "trend";
     time_horizon: string;
@@ -125,7 +158,7 @@ export default function DemoPage() {
     setShowWirePanel(false);
 
     const toolArgs = {
-      merchant_id: params.merchant_id,
+      merchant_id: "merchant_8492",
       category: params.category,
       focus_area: params.focus_area,
       time_horizon: params.time_horizon,
@@ -163,23 +196,22 @@ export default function DemoPage() {
     setCategory(preset.category);
     setFocusArea(preset.focusArea);
     setTimeHorizon(preset.timeHorizon);
-    setQueryMessage(preset.query);
+    const msg = generateQueryMessage(preset.category, preset.focusArea, preset.timeHorizon);
+    setQueryMessage(msg);
 
     executeMcpTool({
-      merchant_id: merchantId,
       category: preset.category,
       focus_area: preset.focusArea,
       time_horizon: preset.timeHorizon,
-      query: preset.query,
+      query: msg,
     });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!merchantId.trim() || !queryMessage.trim()) return;
+    if (!queryMessage.trim()) return;
 
     executeMcpTool({
-      merchant_id: merchantId.trim(),
       category,
       focus_area: focusArea,
       time_horizon: timeHorizon,
@@ -240,17 +272,17 @@ export default function DemoPage() {
             One AI Agent query. <span className="text-emerald-600 dark:text-emerald-400">Two radical renders.</span>
           </h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Configure parameters and send a natural query to the MCP server tool. The AI agent generates a single structured JSON payload rendered natively across opposing design systems.
+            Adjust the parameter variables below to dynamically generate your MCP tool query. The AI agent executes the tool and outputs one shared JSON payload rendered into opposing design systems.
           </p>
         </header>
 
-        {/* ── CARD 1: MCP Tool Parameter Form ── */}
+        {/* ── CARD 1: Reactive Variable Parameter Form ── */}
         <Card className="shadow-md border-border/80 bg-card overflow-hidden">
           <CardHeader className="py-3.5 px-5 sm:px-6 border-b border-border/40 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <IconAdjustmentsHorizontal className="w-4 h-4 text-emerald-600" />
               <CardTitle className="text-sm font-bold text-foreground">
-                MCP Tool Execution Parameters
+                MCP Tool Parameter Variables
               </CardTitle>
             </div>
             <span className="text-[11px] font-mono text-muted-foreground">
@@ -260,33 +292,24 @@ export default function DemoPage() {
 
           <CardContent className="p-5 sm:p-6 space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Parameter Inputs Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+              {/* 3 Parameter Dropdowns */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                {/* Variable 1: Category */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="merchantId" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Merchant ID
-                  </Label>
-                  <Input
-                    id="merchantId"
-                    value={merchantId}
-                    onChange={(e) => setMerchantId(e.target.value)}
-                    disabled={loading}
-                    placeholder="merchant_8492"
-                    className="font-mono text-xs bg-muted/20"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="category" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Category / Industry
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="category" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      $category
+                    </Label>
+                    <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
+                      Variable 1
+                    </span>
+                  </div>
                   <select
                     id="category"
                     value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
                     disabled={loading}
-                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
                   >
                     {CATEGORIES.map((cat) => (
                       <option key={cat} value={cat} className="bg-popover text-foreground">
@@ -296,33 +319,47 @@ export default function DemoPage() {
                   </select>
                 </div>
 
+                {/* Variable 2: Focus Area */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="focusArea" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Focus Area
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="focusArea" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      $focus_area
+                    </Label>
+                    <span className="text-[10px] font-mono text-blue-600 dark:text-blue-400 font-semibold">
+                      Variable 2
+                    </span>
+                  </div>
                   <select
                     id="focusArea"
                     value={focusArea}
-                    onChange={(e) => setFocusArea(e.target.value as "inventory" | "pricing" | "trend")}
+                    onChange={(e) => handleFocusAreaChange(e.target.value as "inventory" | "pricing" | "trend")}
                     disabled={loading}
-                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                   >
-                    <option value="pricing" className="bg-popover text-foreground">Pricing Competitiveness</option>
-                    <option value="inventory" className="bg-popover text-foreground">Inventory & Stockouts</option>
-                    <option value="trend" className="bg-popover text-foreground">Market Search Trends</option>
+                    {FOCUS_AREAS.map((fa) => (
+                      <option key={fa.value} value={fa.value} className="bg-popover text-foreground">
+                        {fa.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
+                {/* Variable 3: Time Horizon */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="timeHorizon" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Time Window
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="timeHorizon" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      $time_horizon
+                    </Label>
+                    <span className="text-[10px] font-mono text-purple-600 dark:text-purple-400 font-semibold">
+                      Variable 3
+                    </span>
+                  </div>
                   <select
                     id="timeHorizon"
                     value={timeHorizon}
-                    onChange={(e) => setTimeHorizon(e.target.value)}
+                    onChange={(e) => handleTimeHorizonChange(e.target.value)}
                     disabled={loading}
-                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
                   >
                     {TIME_HORIZONS.map((th) => (
                       <option key={th.value} value={th.value} className="bg-popover text-foreground">
@@ -333,28 +370,32 @@ export default function DemoPage() {
                 </div>
               </div>
 
-              {/* Natural Language Query Message */}
+              {/* Reactive Query Message with Highlighted Variables */}
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="queryMessage" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    Query Message / Observation
+                  <Label htmlFor="queryMessage" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                    <IconVariable className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Dynamic MCP Query Message</span>
                   </Label>
                   <span className="text-[11px] text-muted-foreground">
-                    Sent to MCP Tool handler & Gemini Flash
+                    Reactive template composed from variables above
                   </span>
                 </div>
-                <Input
-                  id="queryMessage"
-                  value={queryMessage}
-                  onChange={(e) => setQueryMessage(e.target.value)}
-                  disabled={loading}
-                  placeholder="e.g. Rival merchant undercut top summer apparel SKUs by 15%..."
-                  className="bg-muted/20 text-xs text-foreground font-medium h-10"
-                  required
-                />
+
+                <div className="relative">
+                  <Input
+                    id="queryMessage"
+                    value={queryMessage}
+                    onChange={(e) => setQueryMessage(e.target.value)}
+                    disabled={loading}
+                    placeholder="Dynamic prompt will update when variables change..."
+                    className="bg-muted/20 text-xs text-foreground font-medium h-10 pr-4"
+                    required
+                  />
+                </div>
               </div>
 
-              {/* Preset Quick Chips */}
+              {/* Presets & Action Button */}
               <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span className="text-[11px] text-muted-foreground font-medium mr-1">Quick Presets:</span>
@@ -410,10 +451,15 @@ export default function DemoPage() {
                     {String(lastExecutedArgs.query)}
                   </div>
                   <div className="flex flex-wrap gap-2 text-[10px] font-mono text-muted-foreground px-1">
-                    <span className="bg-muted px-2 py-0.5 rounded">ID: {String(lastExecutedArgs.merchant_id)}</span>
-                    <span className="bg-muted px-2 py-0.5 rounded">Category: {String(lastExecutedArgs.category)}</span>
-                    <span className="bg-muted px-2 py-0.5 rounded">Focus: {String(lastExecutedArgs.focus_area)}</span>
-                    <span className="bg-muted px-2 py-0.5 rounded">Window: {String(lastExecutedArgs.time_horizon)}</span>
+                    <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded">
+                      category: &quot;{String(lastExecutedArgs.category)}&quot;
+                    </span>
+                    <span className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded">
+                      focus_area: &quot;{String(lastExecutedArgs.focus_area)}&quot;
+                    </span>
+                    <span className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded">
+                      time_horizon: &quot;{String(lastExecutedArgs.time_horizon)}&quot;
+                    </span>
                   </div>
                 </div>
               </div>
@@ -477,7 +523,7 @@ export default function DemoPage() {
               <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
                 <IconLayersLinked className="w-6 h-6" />
               </div>
-              <p className="text-sm font-bold text-foreground">Submit the parameter form or pick a preset to execute MCP</p>
+              <p className="text-sm font-bold text-foreground">Adjust variables above or click Execute to run the MCP tool</p>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
                 Watch how structured arguments generate a shared JSON payload rendered natively on both opposing surfaces.
               </p>
