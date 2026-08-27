@@ -11,6 +11,10 @@ const CallToolRequestSchema = z.object({
   focus_area: z.enum(["inventory", "pricing", "trend"], {
     message: "focus_area must be one of: 'inventory', 'pricing', 'trend'",
   }),
+  query: z.string().optional(),
+  category: z.string().optional(),
+  scenario: z.string().optional(),
+  time_horizon: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -34,7 +38,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: message }, { status: 400 });
     }
 
-    const { merchant_id, focus_area } = validationResult.data;
+    const toolArgs = validationResult.data;
 
     // Dynamically determine origin, handling Vercel reverse proxy headers and localhost IPv4/IPv6
     const forwardedProto = req.headers.get("x-forwarded-proto");
@@ -63,14 +67,14 @@ export async function POST(req: NextRequest) {
     const vercelSc = req.headers.get("x-vercel-sc-headers");
     if (vercelSc) forwardHeaders["x-vercel-sc-headers"] = vercelSc;
 
-    // Build the wire-level MCP JSON-RPC request object (real format per MCP spec)
+    // Build the wire-level MCP JSON-RPC request object
     const mcpWireRequest = {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/call",
       params: {
         name: "get_merchant_insight",
-        arguments: { merchant_id, focus_area },
+        arguments: toolArgs,
       },
     };
 
@@ -88,10 +92,10 @@ export async function POST(req: NextRequest) {
     // Connect to MCP endpoint
     await client.connect(transport);
 
-    // Call get_merchant_insight tool
+    // Call get_merchant_insight tool with rich dynamic arguments
     const result = await client.callTool({
       name: "get_merchant_insight",
-      arguments: { merchant_id, focus_area },
+      arguments: toolArgs,
     });
 
     if (result.isError) {
@@ -134,7 +138,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build the wire-level MCP JSON-RPC response object (real format per MCP spec)
+    // Build the wire-level MCP JSON-RPC response object
     const mcpWireResponse = {
       jsonrpc: "2.0",
       id: 1,

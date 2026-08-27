@@ -20,134 +20,129 @@ const MerchantInsightSchema = z.object({
 
 type MerchantInsight = z.infer<typeof MerchantInsightSchema>;
 
-async function generateMerchantInsight(
-  merchant_id: string,
-  focus_area: "inventory" | "pricing" | "trend"
-): Promise<MerchantInsight> {
+interface GenerateParams {
+  merchant_id: string;
+  focus_area: "inventory" | "pricing" | "trend";
+  query?: string;
+  category?: string;
+  scenario?: string;
+  time_horizon?: string;
+}
+
+async function generateMerchantInsight({
+  merchant_id,
+  focus_area,
+  query,
+  category,
+  scenario,
+  time_horizon,
+}: GenerateParams): Promise<MerchantInsight> {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 
-  // Fallback demo fixtures if API key is not yet set in environment
-  if (!apiKey) {
-    if (focus_area === "inventory") {
-      return {
-        headline: `Low Stock Alert for Merchant ${merchant_id}`,
-        detail: "Top 3 high-velocity SKUs are projected to stock out within 48 hours based on weekend demand.",
-        metric: { label: "In-Stock Rate", value: "62%", trend: "down" },
-        chart: [98, 92, 85, 74, 68, 62],
-        action: "Reorder Fast-Moving SKUs",
-      };
-    }
-    if (focus_area === "pricing") {
-      return {
-        headline: `Price Competitiveness Opportunity (${merchant_id})`,
-        detail: "Benchmark prices across matched catalog items are 8.4% below median market basket rates.",
-        metric: { label: "Price Index", value: "91.6", trend: "up" },
-        chart: [88, 89, 89, 90, 91, 92],
-        action: "Adjust Smart Bidding Target",
-      };
-    }
-    return {
-      headline: `Surge in Seasonal Search Demand for Merchant ${merchant_id}`,
-      detail: "Category queries for outdoor gear surged 24% week-over-week across your primary sales regions.",
-      metric: { label: "Query Volume", value: "+24.3%", trend: "up" },
-      chart: [120, 135, 140, 158, 172, 195, 214],
-      action: "Increase Campaign Budgets",
-    };
-  }
+  if (apiKey) {
+    const ai = new GoogleGenAI({ apiKey });
 
-  const ai = new GoogleGenAI({ apiKey });
-
-  const systemInstruction = `You are a specialized retail and merchant analytics engine that generates compact Smart Snippets for e-commerce merchants.
-Given a merchant ID and a focus area (inventory, pricing, or trend), produce a concise, realistic insight object.
+    const systemInstruction = `You are a specialized retail and merchant analytics intelligence engine that generates compact, high-impact Smart Snippets for e-commerce and retail businesses.
+Given a merchant ID, focus area, category, custom scenario, or user question, synthesize an insightful, highly realistic data finding tailored precisely to their inputs.
 You must output ONLY a single valid JSON object matching this exact structure:
 {
-  "headline": "Short high-impact headline (max 8-10 words)",
-  "detail": "Precise, factual detail sentence explaining observation or risk (max 20 words)",
+  "headline": "Short high-impact headline specific to the scenario (max 8-10 words)",
+  "detail": "Precise, factual detail sentence explaining observation or root cause (max 20 words)",
   "metric": {
-    "label": "Metric name (e.g. In-Stock Rate, Price Index, Search Lift)",
-    "value": "Formatted metric value (e.g. 64%, $19.99, +28.4%)",
+    "label": "Metric name relevant to category & scenario (e.g. Stockout Risk Index, Competitor Price Gap, Demand Lift)",
+    "value": "Formatted metric value (e.g. 64%, $19.99, +28.4%, -14.2%)",
     "trend": "up" | "down" | "flat"
   },
-  "chart": [5 to 8 numeric numbers showing chronological trend],
+  "chart": [5 to 8 numeric numbers showing realistic chronological trend reflecting the scenario],
   "action": "Short imperative call to action button label (max 4-5 words)"
 }`;
 
-  const prompt = `Generate a realistic merchant insight snippet for merchant_id: "${merchant_id}" with focus_area: "${focus_area}".`;
+    const promptDetails = [
+      `Merchant ID: "${merchant_id}"`,
+      `Focus Area: "${focus_area}"`,
+      query ? `User Query/Scenario: "${query}"` : null,
+      category ? `Industry/Category: "${category}"` : null,
+      scenario ? `Market Condition: "${scenario}"` : null,
+      time_horizon ? `Time Horizon: "${time_horizon}"` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
-  const modelsToTry = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-flash"];
+    const prompt = `Generate a realistic merchant insight snippet based on:\n${promptDetails}`;
 
-  for (const modelName of modelsToTry) {
-    try {
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: prompt,
-        config: {
-          systemInstruction,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              headline: { type: "STRING" },
-              detail: { type: "STRING" },
-              metric: {
-                type: "OBJECT",
-                properties: {
-                  label: { type: "STRING" },
-                  value: { type: "STRING" },
-                  trend: { type: "STRING", enum: ["up", "down", "flat"] },
+    const modelsToTry = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-flash"];
+
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: prompt,
+          config: {
+            systemInstruction,
+            temperature: 0.3,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "object" as any,
+              properties: {
+                headline: { type: "string" as any },
+                detail: { type: "string" as any },
+                metric: {
+                  type: "object" as any,
+                  properties: {
+                    label: { type: "string" as any },
+                    value: { type: "string" as any },
+                    trend: { type: "string" as any, enum: ["up", "down", "flat"] },
+                  },
+                  required: ["label", "value", "trend"],
                 },
-                required: ["label", "value", "trend"],
+                chart: {
+                  type: "array" as any,
+                  items: { type: "number" as any },
+                },
+                action: { type: "string" as any },
               },
-              chart: {
-                type: "ARRAY",
-                items: { type: "NUMBER" },
-              },
-              action: { type: "STRING" },
+              required: ["headline", "detail", "metric", "chart", "action"],
             },
-            required: ["headline", "detail", "metric", "chart", "action"],
           },
-        },
-      });
+        });
 
-      const rawText = response.text?.trim() || "";
-      const parsed = JSON.parse(rawText);
-      return MerchantInsightSchema.parse(parsed);
-    } catch (err) {
-      console.warn(`Attempt with ${modelName} failed:`, err);
-      // Try next model in loop
+        const rawText = response.text?.trim() || "";
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        const jsonString = jsonMatch ? jsonMatch[0] : rawText;
+        const parsed = JSON.parse(jsonString);
+        return MerchantInsightSchema.parse(parsed);
+      } catch (err) {
+        console.warn(`Model ${modelName} call failed, trying fallback:`, err);
+      }
     }
   }
 
-  // Fallback dynamic generator to guarantee 100% demo reliability even during API outages
+  // Deterministic dynamic fallback
+  const cat = category || "catalog items";
   if (focus_area === "inventory") {
-    const rate = Math.floor(Math.random() * 25) + 50;
     return {
-      headline: `Stockout Risk Identified for Merchant ${merchant_id}`,
-      detail: `Top velocity SKUs are depleting faster than forecasted replenishment lead times.`,
-      metric: { label: "In-Stock Rate", value: `${rate}%`, trend: "down" },
-      chart: [95, 88, 82, 73, 65, rate],
-      action: "Restock Low-Inventory Items",
+      headline: `Stockout Risk in ${cat} (${merchant_id})`,
+      detail: `Top-selling ${cat} projected to deplete rapidly based on recent surge velocity.`,
+      metric: { label: "In-Stock Rate", value: "58.4%", trend: "down" },
+      chart: [96, 90, 82, 71, 64, 58],
+      action: `Restock ${cat} SKUs`,
     };
   }
-
   if (focus_area === "pricing") {
-    const index = (Math.random() * 8 + 88).toFixed(1);
     return {
-      headline: `Price Optimization Opportunity for ${merchant_id}`,
-      detail: `Competitive catalog monitoring detected opportunity to capture 14% incremental margins.`,
-      metric: { label: "Price Competitiveness", value: `${index}`, trend: "up" },
-      chart: [85, 87, 89, 90, 92, Math.round(Number(index))],
-      action: "Apply Smart Bidding Target",
+      headline: `Competitor Undercut Threat in ${cat}`,
+      detail: `Rival merchants lowered median price by 12.8% on high-intent search items.`,
+      metric: { label: "Price Index", value: "87.2", trend: "down" },
+      chart: [100, 98, 95, 91, 88, 87],
+      action: "Optimize Dynamic Pricing",
     };
   }
-
-  const lift = (Math.random() * 15 + 18).toFixed(1);
   return {
-    headline: `Surge in Search Demand for ${merchant_id}`,
-    detail: `Category interest surged across high-intent product categories over the past 7 days.`,
-    metric: { label: "Search Demand Lift", value: `+${lift}%`, trend: "up" },
-    chart: [110, 125, 140, 160, 185, 210],
-    action: "Boost Campaign Budget",
+    headline: `Surging Search Velocity for ${cat}`,
+    detail: `Regional search interest climbed 34.2% week-over-week across target locations.`,
+    metric: { label: "Demand Lift", value: "+34.2%", trend: "up" },
+    chart: [110, 125, 140, 168, 195, 230],
+    action: "Boost Campaign Bids",
   };
 }
 
@@ -156,18 +151,22 @@ const handler = createMcpHandler(
     server.registerTool(
       "get_merchant_insight",
       {
-        description: "Generate a structured merchant insight snippet for inventory, pricing, or trend analytics",
+        description: "Generate dynamic, structured retail and merchant analytics insight snippets",
         inputSchema: z.object({
           merchant_id: z.string().describe("The unique identifier for the merchant"),
           focus_area: z
             .enum(["inventory", "pricing", "trend"])
-            .describe("The focus area for the insight: inventory, pricing, or trend"),
+            .describe("The focus area: inventory, pricing, or trend"),
+          query: z.string().optional().describe("Specific user natural language question or scenario"),
+          category: z.string().optional().describe("Retail industry or product category"),
+          scenario: z.string().optional().describe("Simulated market condition or event"),
+          time_horizon: z.string().optional().describe("Evaluation window (e.g. 7d, 30d, 90d)"),
         }),
         outputSchema: MerchantInsightSchema,
       },
-      async ({ merchant_id, focus_area }) => {
+      async (params) => {
         try {
-          const insight = await generateMerchantInsight(merchant_id, focus_area);
+          const insight = await generateMerchantInsight(params as GenerateParams);
           return {
             content: [
               {
