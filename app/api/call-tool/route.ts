@@ -49,16 +49,22 @@ export async function POST(req: NextRequest) {
 
     const mcpUrl = new URL("/api/mcp", origin);
 
+    // Build the wire-level MCP JSON-RPC request object (real format per MCP spec)
+    const mcpWireRequest = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: {
+        name: "get_merchant_insight",
+        arguments: { merchant_id, focus_area },
+      },
+    };
+
     // Initialize MCP Client and Streamable HTTP Transport
     const transport = new StreamableHTTPClientTransport(mcpUrl);
     client = new Client(
-      {
-        name: "call-tool-client",
-        version: "1.0.0",
-      },
-      {
-        capabilities: {},
-      }
+      { name: "call-tool-client", version: "1.0.0" },
+      { capabilities: {} }
     );
 
     // Connect to MCP endpoint
@@ -67,10 +73,7 @@ export async function POST(req: NextRequest) {
     // Call get_merchant_insight tool
     const result = await client.callTool({
       name: "get_merchant_insight",
-      arguments: {
-        merchant_id,
-        focus_area,
-      },
+      arguments: { merchant_id, focus_area },
     });
 
     if (result.isError) {
@@ -113,7 +116,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json(insight, { status: 200 });
+    // Build the wire-level MCP JSON-RPC response object (real format per MCP spec)
+    const mcpWireResponse = {
+      jsonrpc: "2.0",
+      id: 1,
+      result: {
+        content: result.content,
+        structuredContent: insight,
+      },
+    };
+
+    return NextResponse.json(
+      {
+        insight,
+        _mcp: {
+          endpoint: mcpUrl.toString(),
+          request: mcpWireRequest,
+          response: mcpWireResponse,
+        },
+      },
+      { status: 200 }
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error occurred";
     return NextResponse.json({ error: message }, { status: 500 });
