@@ -77,7 +77,7 @@ You must output ONLY a single valid JSON object matching this exact structure:
   // Attempt 1: Using structured generation
   try {
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.6-flash",
       contents: prompt,
       config: {
         systemInstruction,
@@ -115,7 +115,7 @@ You must output ONLY a single valid JSON object matching this exact structure:
     // Retry once with a stricter reminder
     try {
       const retryResponse = await ai.models.generateContent({
-        model: "gemini-2.0-flash",
+        model: "gemini-3.6-flash",
         contents: `${prompt}\n\nIMPORTANT: Your previous output failed schema validation. Return ONLY a strictly valid JSON object conforming to the schema with 5 to 8 numeric values in the chart array. No markdown formatting.`,
         config: {
           systemInstruction,
