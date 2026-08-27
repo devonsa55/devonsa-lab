@@ -51,6 +51,8 @@ export default function DemoPage() {
   const [editedJson, setEditedJson] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
 
+  const [isModified, setIsModified] = useState(false);
+
   const handleFetchInsight = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!merchantId.trim()) return;
@@ -58,6 +60,7 @@ export default function DemoPage() {
     setLoading(true);
     setError(null);
     setJsonError(null);
+    setIsModified(false);
     setShowEditPanel(false);
     setShowWirePanel(false);
 
@@ -106,7 +109,29 @@ export default function DemoPage() {
         setJsonError('metric.trend must be "up", "down", or "flat"');
         return;
       }
-      setInsight(parsed as MerchantInsight);
+      const validatedInsight = parsed as MerchantInsight;
+      setInsight(validatedInsight);
+      setIsModified(true);
+
+      // Keep MCP Wire Protocol Inspector in sync with edited payload
+      if (mcpWire) {
+        setMcpWire({
+          ...mcpWire,
+          response: {
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [
+                {
+                  type: "text",
+                  text: JSON.stringify(validatedInsight),
+                },
+              ],
+              structuredContent: validatedInsight,
+            },
+          },
+        });
+      }
     } catch {
       setJsonError("Invalid JSON — please check syntax and try again.");
     }
@@ -397,11 +422,22 @@ export default function DemoPage() {
 
                       {/* Response */}
                       <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                            Server ➔ Client (Response)
-                          </span>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                              Server ➔ Client (Response)
+                            </span>
+                          </div>
+                          {isModified ? (
+                            <Badge variant="outline" className="text-[10px] font-mono border-violet-500/30 text-violet-700 dark:text-violet-300 bg-violet-50/50">
+                              Live Modified Payload
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-700 dark:text-emerald-300 bg-emerald-50/50">
+                              Live MCP Server Response
+                            </Badge>
+                          )}
                         </div>
                         <pre className="bg-slate-950 rounded-xl p-4 text-[11px] font-mono text-emerald-300 overflow-x-auto leading-relaxed border border-slate-800">
                           {JSON.stringify(mcpWire.response, null, 2)}
