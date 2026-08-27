@@ -3,7 +3,14 @@ import { MerchantInsight } from "@/types/insight";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Sparkles, TrendingUp, TrendingDown, Minus, Store, ArrowRight } from "lucide-react";
+import {
+  IconSparkles,
+  IconBuildingStore,
+  IconTrendingUp,
+  IconTrendingDown,
+  IconMinus,
+  IconArrowRight,
+} from "@tabler/icons-react";
 
 export interface MerchantCenterCardProps {
   data: MerchantInsight;
@@ -20,10 +27,10 @@ export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-emerald-600/10 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400 flex items-center justify-center border border-emerald-600/20">
-                <Sparkles className="w-4 h-4 fill-current" />
+                <IconSparkles className="w-4 h-4" />
               </div>
               <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                <Store className="w-3.5 h-3.5 text-emerald-600" />
+                <IconBuildingStore className="w-4 h-4 text-emerald-600" />
                 Merchant Center
               </div>
             </div>
@@ -55,7 +62,7 @@ export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
                 {data.metric.label}
               </span>
               <div className="flex items-center gap-2 mt-1">
-                <span className="text-2xl font-extrabold text-foreground tracking-tight">
+                <span className="text-2xl font-extrabold text-foreground tracking-tight font-mono">
                   {data.metric.value}
                 </span>
                 <TrendIndicator trend={trend} />
@@ -71,9 +78,9 @@ export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
       </div>
 
       <CardFooter className="flex-col gap-2.5 pt-2 border-t border-border/40 bg-muted/10">
-        <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-sm gap-2 font-medium cursor-pointer">
+        <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm gap-2 font-medium cursor-pointer">
           <span>{data.action}</span>
-          <ArrowRight className="w-4 h-4" />
+          <IconArrowRight className="w-4 h-4" />
         </Button>
         <p className="text-[11px] text-muted-foreground text-center">
           AI-generated insights may display inaccurate results.
@@ -87,7 +94,7 @@ function TrendIndicator({ trend }: { trend: "up" | "down" | "flat" }) {
   if (trend === "up") {
     return (
       <Badge variant="outline" className="gap-1 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800">
-        <TrendingUp className="w-3.5 h-3.5" />
+        <IconTrendingUp className="w-3.5 h-3.5" />
         <span>Up</span>
       </Badge>
     );
@@ -96,7 +103,7 @@ function TrendIndicator({ trend }: { trend: "up" | "down" | "flat" }) {
   if (trend === "down") {
     return (
       <Badge variant="outline" className="gap-1 text-[11px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-50/80 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800">
-        <TrendingDown className="w-3.5 h-3.5" />
+        <IconTrendingDown className="w-3.5 h-3.5" />
         <span>Down</span>
       </Badge>
     );
@@ -104,7 +111,7 @@ function TrendIndicator({ trend }: { trend: "up" | "down" | "flat" }) {
 
   return (
     <Badge variant="outline" className="gap-1 text-[11px] font-semibold text-muted-foreground bg-muted/60 border-border">
-      <Minus className="w-3.5 h-3.5" />
+      <IconMinus className="w-3.5 h-3.5" />
       <span>Flat</span>
     </Badge>
   );
@@ -144,20 +151,20 @@ function SparklineChart({ chart, gradientId }: { chart: number[]; gradientId: st
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" aria-hidden="true">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2563eb" stopOpacity="0.3" />
-          <stop offset="100%" stopColor="#2563eb" stopOpacity="0.0" />
+          <stop offset="0%" stopColor="#059669" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#059669" stopOpacity="0.0" />
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#${gradientId})`} />
       <path
         d={linePath}
         fill="none"
-        stroke="#2563eb"
+        stroke="#059669"
         strokeWidth="2.2"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx={lastPoint.x} cy={lastPoint.y} r="3.5" fill="#2563eb" className="animate-pulse" />
+      <circle cx={lastPoint.x} cy={lastPoint.y} r="3.5" fill="#059669" className="animate-pulse" />
     </svg>
   );
 }

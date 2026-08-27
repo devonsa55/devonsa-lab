@@ -12,17 +12,16 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
-  Sparkles,
-  Zap,
-  ChevronDown,
-  RefreshCw,
-  Terminal,
-  Code2,
-  SlidersHorizontal,
-  Layers,
-  ArrowRight,
-  AlertCircle,
-} from "lucide-react";
+  IconSparkles,
+  IconBolt,
+  IconChevronDown,
+  IconLoader2,
+  IconTerminal2,
+  IconCode,
+  IconAdjustmentsHorizontal,
+  IconLayersLinked,
+  IconAlertCircle,
+} from "@tabler/icons-react";
 
 const FOCUS_AREAS = [
   { value: "inventory", label: "Inventory Analysis" },
@@ -118,15 +117,15 @@ export default function DemoPage() {
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Hero Header */}
         <header className="text-center space-y-3">
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-semibold uppercase tracking-wider shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold uppercase tracking-wider shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
             Live Model Context Protocol Demo
           </div>
           <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
-            One MCP tool call. <span className="text-blue-600 dark:text-blue-400">Two native renders.</span>
+            One MCP tool call. <span className="text-emerald-600 dark:text-emerald-400">Two native renders.</span>
           </h1>
           <p className="text-sm sm:text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            A single structured MCP payload generated over the official Model Context Protocol, rendered simultaneously into two native Google product design systems.
+            A single structured MCP payload generated over the official Model Context Protocol, rendered simultaneously into two native Google product design systems with custom Shadcn presets.
           </p>
         </header>
 
@@ -134,7 +133,7 @@ export default function DemoPage() {
         <Card className="max-w-3xl mx-auto shadow-md border-border/80 bg-card">
           <CardHeader className="pb-4 border-b border-border/40 bg-muted/20">
             <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <SlidersHorizontal className="w-4 h-4 text-blue-600" />
+              <IconAdjustmentsHorizontal className="w-4 h-4 text-emerald-600" />
               Tool Parameters
             </div>
             <CardDescription className="text-xs">
@@ -186,12 +185,12 @@ export default function DemoPage() {
                 >
                   {loading ? (
                     <>
-                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <IconLoader2 className="w-4 h-4 animate-spin" />
                       <span>Calling MCP Tool…</span>
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-4 h-4" />
+                      <IconSparkles className="w-4 h-4" />
                       <span>Fetch insight</span>
                     </>
                   )}
@@ -216,7 +215,7 @@ export default function DemoPage() {
         {error && (
           <Card className="max-w-3xl mx-auto border-destructive/50 bg-destructive/10 text-destructive shadow-sm">
             <CardContent className="p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+              <IconAlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold text-sm">MCP Request Failed</p>
                 <p className="text-xs opacity-90 mt-0.5">{error}</p>
@@ -229,8 +228,8 @@ export default function DemoPage() {
         {!insight && !loading && !error && (
           <Card className="max-w-md mx-auto text-center py-10 px-6 border-dashed border-2 bg-muted/20 shadow-none">
             <CardContent className="p-0 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto border border-blue-500/20">
-                <Layers className="w-6 h-6" />
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+                <IconLayersLinked className="w-6 h-6" />
               </div>
               <CardTitle className="text-base font-bold">Ready to execute MCP tool</CardTitle>
               <CardDescription className="text-xs max-w-xs mx-auto">
@@ -250,11 +249,11 @@ export default function DemoPage() {
               <div className="h-16 bg-muted/60 rounded-xl" />
               <div className="h-10 bg-muted rounded-lg" />
             </Card>
-            <Card className="p-5 space-y-3 bg-emerald-500/5 border-emerald-500/20">
-              <div className="h-4 bg-emerald-500/15 rounded w-1/4" />
-              <div className="h-5 bg-emerald-500/15 rounded w-2/3" />
-              <div className="h-3 bg-emerald-500/15 rounded w-full" />
-              <div className="h-10 bg-emerald-500/10 rounded" />
+            <Card className="p-5 space-y-3 bg-blue-500/5 border-blue-500/20">
+              <div className="h-4 bg-blue-500/15 rounded w-1/4" />
+              <div className="h-5 bg-blue-500/15 rounded w-2/3" />
+              <div className="h-3 bg-blue-500/15 rounded w-full" />
+              <div className="h-10 bg-blue-500/10 rounded" />
             </Card>
           </div>
         )}
@@ -263,29 +262,29 @@ export default function DemoPage() {
         {insight && (
           <section className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-              {/* Surface 1: Merchant Center */}
+              {/* Surface 1: Merchant Center (Preset b7kBsBkh7b) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
                   <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                    <span className="w-2 h-2 rounded-full bg-emerald-600" />
                     Surface 1: Merchant Center
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-mono">
-                    Card Component
+                  <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40">
+                    Preset b7kBsBkh7b
                   </Badge>
                 </div>
                 <MerchantCenterCard data={insight} />
               </div>
 
-              {/* Surface 2: Google Ads */}
+              {/* Surface 2: Google Ads (Preset b3ZzpQduoy) */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                  <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
                     Surface 2: Google Ads
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-700 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/40">
-                    Banner Strip
+                  <Badge variant="outline" className="text-[10px] font-mono border-blue-500/30 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/40">
+                    Preset b3ZzpQduoy
                   </Badge>
                 </div>
                 <AdsBanner data={insight} />
@@ -297,7 +296,7 @@ export default function DemoPage() {
               <CollapsibleTrigger className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className="flex items-center gap-2.5">
                   <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30 gap-1">
-                    <Code2 className="w-3 h-3" />
+                    <IconCode className="w-3.5 h-3.5" />
                     EDIT
                   </Badge>
                   <span className="text-sm font-semibold text-foreground">
@@ -307,7 +306,7 @@ export default function DemoPage() {
                     — proof that one object drives both renders
                   </span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showEditPanel ? "rotate-180" : ""}`} />
+                <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showEditPanel ? "rotate-180" : ""}`} />
               </CollapsibleTrigger>
 
               <CollapsibleContent className="px-6 pb-6 border-t border-border/40 space-y-4 pt-4 bg-muted/5">
@@ -326,7 +325,7 @@ export default function DemoPage() {
                 />
                 {jsonError && (
                   <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <IconAlertCircle className="w-3.5 h-3.5 shrink-0" />
                     {jsonError}
                   </p>
                 )}
@@ -336,7 +335,7 @@ export default function DemoPage() {
                     onClick={handleApplyEdit}
                     className="bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold cursor-pointer gap-1.5"
                   >
-                    <Zap className="w-3.5 h-3.5" />
+                    <IconBolt className="w-3.5 h-3.5" />
                     Apply & Re-render
                   </Button>
                   <Button
@@ -359,7 +358,7 @@ export default function DemoPage() {
               <CollapsibleTrigger className="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className="flex items-center gap-2.5">
                   <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 gap-1">
-                    <Terminal className="w-3 h-3" />
+                    <IconTerminal2 className="w-3.5 h-3.5" />
                     MCP
                   </Badge>
                   <span className="text-sm font-semibold text-foreground">
@@ -369,7 +368,7 @@ export default function DemoPage() {
                     — actual JSON-RPC 2.0 messages over the protocol
                   </span>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showWirePanel ? "rotate-180" : ""}`} />
+                <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showWirePanel ? "rotate-180" : ""}`} />
               </CollapsibleTrigger>
 
               <CollapsibleContent className="px-6 pb-6 border-t border-border/40 space-y-4 pt-4 bg-muted/5">
