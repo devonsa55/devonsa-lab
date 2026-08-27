@@ -49,6 +49,20 @@ export async function POST(req: NextRequest) {
 
     const mcpUrl = new URL("/api/mcp", origin);
 
+    // Build headers to forward (preserves Vercel Deployment Protection auth/cookies on internal fetches)
+    const forwardHeaders: Record<string, string> = {};
+    const cookie = req.headers.get("cookie");
+    if (cookie) forwardHeaders["cookie"] = cookie;
+
+    const bypass = req.headers.get("x-vercel-protection-bypass");
+    if (bypass) forwardHeaders["x-vercel-protection-bypass"] = bypass;
+
+    const auth = req.headers.get("authorization");
+    if (auth) forwardHeaders["authorization"] = auth;
+
+    const vercelSc = req.headers.get("x-vercel-sc-headers");
+    if (vercelSc) forwardHeaders["x-vercel-sc-headers"] = vercelSc;
+
     // Build the wire-level MCP JSON-RPC request object (real format per MCP spec)
     const mcpWireRequest = {
       jsonrpc: "2.0",
@@ -60,8 +74,12 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    // Initialize MCP Client and Streamable HTTP Transport
-    const transport = new StreamableHTTPClientTransport(mcpUrl);
+    // Initialize MCP Client and Streamable HTTP Transport with forwarded authentication
+    const transport = new StreamableHTTPClientTransport(mcpUrl, {
+      requestInit: {
+        headers: forwardHeaders,
+      },
+    });
     client = new Client(
       { name: "call-tool-client", version: "1.0.0" },
       { capabilities: {} }
