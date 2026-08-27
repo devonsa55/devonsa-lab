@@ -28,6 +28,8 @@ import {
   IconAdjustmentsHorizontal,
   IconLayersLinked,
   IconAlertCircle,
+  IconLayoutGrid,
+  IconLayoutRows,
 } from "@tabler/icons-react";
 
 const FOCUS_AREAS = [
@@ -59,6 +61,7 @@ export default function DemoPage() {
   const [jsonError, setJsonError] = useState<string | null>(null);
 
   const [isModified, setIsModified] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "stacked">("grid");
 
   const handleFetchInsight = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -295,38 +298,109 @@ export default function DemoPage() {
           </div>
         )}
 
-        {/* Side-by-Side Dual Surface Output */}
+        {/* Dual Surface Output Section */}
         {insight && (
           <section className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-              {/* Surface 1: Merchant Center (Preset b7kBsBkh7b) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                    Surface 1: Merchant Center
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40">
-                    Preset b7kBsBkh7b
-                  </Badge>
-                </div>
-                <MerchantCenterCard data={insight} />
+            {/* View Mode Switcher Header */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border/40">
+              <div>
+                <h2 className="text-lg font-bold text-foreground tracking-tight">
+                  Dual Native Surface Renders
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  The exact same MCP JSON payload rendered under two distinct design system presets.
+                </p>
               </div>
 
-              {/* Surface 2: Google Ads (Preset b3ZzpQduoy) */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-blue-600" />
-                    Surface 2: Google Ads
-                  </span>
-                  <Badge variant="outline" className="text-[10px] font-mono border-blue-500/30 text-blue-700 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/40">
-                    Preset b3ZzpQduoy
-                  </Badge>
-                </div>
-                <AdsBanner data={insight} />
+              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-muted/60 border border-border/60 self-start sm:self-auto">
+                <Button
+                  variant={viewMode === "grid" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                  className={`h-7 px-3 text-xs font-semibold rounded-lg gap-1.5 cursor-pointer ${
+                    viewMode === "grid" ? "bg-background text-foreground shadow-2xs" : "text-muted-foreground"
+                  }`}
+                >
+                  <IconLayoutGrid className="w-3.5 h-3.5" />
+                  <span>Side by Side</span>
+                </Button>
+                <Button
+                  variant={viewMode === "stacked" ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => setViewMode("stacked")}
+                  className={`h-7 px-3 text-xs font-semibold rounded-lg gap-1.5 cursor-pointer ${
+                    viewMode === "stacked" ? "bg-background text-foreground shadow-2xs" : "text-muted-foreground"
+                  }`}
+                >
+                  <IconLayoutRows className="w-3.5 h-3.5" />
+                  <span>Wide Banner Mode</span>
+                </Button>
               </div>
             </div>
+
+            {/* Render Mode 1: Side by Side (Grid) */}
+            {viewMode === "grid" ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+                {/* Surface 1: Merchant Center (Preset b7kBsBkh7b) */}
+                <div className="space-y-2 flex flex-col">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                      Surface 1: Merchant Center
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40">
+                      Nova • Zinc/Green (b7kBsBkh7b)
+                    </Badge>
+                  </div>
+                  <MerchantCenterCard data={insight} />
+                </div>
+
+                {/* Surface 2: Google Ads (Preset b3ZzpQduoy) */}
+                <div className="space-y-2 flex flex-col">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-600" />
+                      Surface 2: Google Ads
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-blue-500/30 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/40">
+                      Maia • Mist/Blue (b3ZzpQduoy)
+                    </Badge>
+                  </div>
+                  <AdsBanner data={insight} variant="card" />
+                </div>
+              </div>
+            ) : (
+              /* Render Mode 2: Stacked with Full-Width Wide Banner */
+              <div className="space-y-6">
+                {/* Surface 1: Merchant Center Card */}
+                <div className="space-y-2 max-w-2xl mx-auto">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600" />
+                      Surface 1: Merchant Center
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-emerald-500/30 text-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/40">
+                      Nova • Zinc/Green (b7kBsBkh7b)
+                    </Badge>
+                  </div>
+                  <MerchantCenterCard data={insight} />
+                </div>
+
+                {/* Surface 2: Full-Width Horizontal Google Ads Campaign Strip */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-xs font-bold text-blue-800 dark:text-blue-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-blue-600" />
+                      Surface 2: Google Ads Horizontal Campaign Strip
+                    </span>
+                    <Badge variant="outline" className="text-[10px] font-mono border-blue-500/30 text-blue-700 dark:text-blue-300 bg-blue-50/50 dark:bg-blue-950/40">
+                      Maia • Mist/Blue (b3ZzpQduoy)
+                    </Badge>
+                  </div>
+                  <AdsBanner data={insight} variant="horizontal" />
+                </div>
+              </div>
+            )}
 
             {/* ── Panel 1: Edit & Re-render ── */}
             <Collapsible open={showEditPanel} onOpenChange={setShowEditPanel} className="border border-border/80 rounded-2xl bg-card shadow-sm overflow-hidden">
