@@ -24,6 +24,8 @@ import {
   IconLayersLinked,
   IconCheck,
   IconBolt,
+  IconHierarchy2,
+  IconArrowRight,
 } from "@tabler/icons-react";
 
 interface PresetQuery {
@@ -87,9 +89,12 @@ export default function DemoPage() {
   const [mcpWire, setMcpWire] = useState<McpWire | null>(null);
   const [lastExecutedArgs, setLastExecutedArgs] = useState<Record<string, unknown> | null>(null);
 
-  // Inspector panel states
+  // Inspector & Architecture panel states
+  const [showArchPanel, setShowArchPanel] = useState(false);
   const [showEditPanel, setShowEditPanel] = useState(false);
   const [showWirePanel, setShowWirePanel] = useState(false);
+
+  // Editable JSON state
   const [editedJson, setEditedJson] = useState("");
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
@@ -161,7 +166,6 @@ export default function DemoPage() {
     e.preventDefault();
     if (!queryMessage.trim()) return;
 
-    // Detect focus area from query if custom
     let focus: "inventory" | "pricing" | "trend" = activeFocusArea;
     const lower = queryMessage.toLowerCase();
     if (lower.includes("stock") || lower.includes("inventory") || lower.includes("supply")) {
@@ -471,10 +475,100 @@ export default function DemoPage() {
           </Card>
         )}
 
-        {/* ── CARD 4: Live Inspectors ── */}
-        {insight && !loading && (
-          <div className="space-y-4">
-            {/* Panel 1: Edit & Live Re-render */}
+        {/* ── CARD 4: Live Inspectors & Technical Architecture ── */}
+        <div className="space-y-4">
+          {/* Panel 1: Technical Architecture & Protocol Pipeline */}
+          <Collapsible open={showArchPanel} onOpenChange={setShowArchPanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
+            <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
+              <div className="flex items-center gap-2.5">
+                <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 gap-1">
+                  <IconHierarchy2 className="w-3 h-3" />
+                  SPECS
+                </Badge>
+                <span className="text-sm font-semibold text-foreground">
+                  Technical Architecture & Multi-Surface Flow
+                </span>
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  — protocol mechanics, transport specification & decoupling
+                </span>
+              </div>
+              <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showArchPanel ? "rotate-180" : ""}`} />
+            </CollapsibleTrigger>
+
+            <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-4 pt-4 bg-muted/5">
+              {/* Flowchart Diagram */}
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-3">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                  End-to-End Execution Flow
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
+                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
+                    <span className="font-bold text-foreground block">1. User / Client Prompt</span>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Natural language observation & parameters entered in host interface.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
+                    <span className="font-bold text-foreground block">2. MCP Tool Invocation</span>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Official MCP Client sends <code>tools/call</code> JSON-RPC 2.0 via Streamable HTTP.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
+                    <span className="font-bold text-foreground block">3. Structured Schema</span>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      MCP Server synthesizes data conforming strictly to typed Zod schema.
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
+                    <span className="font-bold text-foreground block">4. Dual Native Projection</span>
+                    <p className="text-[11px] text-muted-foreground leading-relaxed">
+                      Two isolated clients ingest identical payload into independent design systems.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Technical Pillars */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
+                  <span className="font-bold text-foreground flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Decoupled Presentation
+                  </span>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    MCP servers never return hardcoded HTML or vendor-locked CSS. They produce pure data contracts, allowing host clients full layout autonomy.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
+                  <span className="font-bold text-foreground flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    Streamable HTTP Transport
+                  </span>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Operates over stateless HTTP endpoints, supporting serverless cloud deployment, edge caching, and reverse-proxy authentication.
+                  </p>
+                </div>
+
+                <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
+                  <span className="font-bold text-foreground flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-purple-500" />
+                    Reactive Synchrony
+                  </span>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Because both surfaces are bound to the single canonical JSON object, mutations in upstream data update all downstream representations in lockstep.
+                  </p>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Panel 2: Edit & Live Re-render */}
+          {insight && !loading && (
             <Collapsible open={showEditPanel} onOpenChange={setShowEditPanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
               <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className="flex items-center gap-2.5">
@@ -534,8 +628,10 @@ export default function DemoPage() {
                 </div>
               </CollapsibleContent>
             </Collapsible>
+          )}
 
-            {/* Panel 2: MCP Wire Protocol */}
+          {/* Panel 3: MCP Wire Protocol */}
+          {insight && !loading && (
             <Collapsible open={showWirePanel} onOpenChange={setShowWirePanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
               <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className="flex items-center gap-2.5">
@@ -595,8 +691,8 @@ export default function DemoPage() {
                 )}
               </CollapsibleContent>
             </Collapsible>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
