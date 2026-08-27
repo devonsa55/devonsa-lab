@@ -1,13 +1,18 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Geist, Geist_Mono, Instrument_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const instrumentSansHeading = Instrument_Sans({subsets:['latin'],variable:'--font-heading'});
+const plusJakartaSans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
-const geistMono = Geist_Mono({subsets:['latin'],variable:'--font-mono'});
-
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+});
 
 export const metadata: Metadata = {
   title: "MCP Multi-Surface Demo",
@@ -20,8 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn( geist.variable, "font-mono", geistMono.variable, instrumentSansHeading.variable)}>
-      <body className="min-h-screen antialiased bg-slate-50 text-slate-900">
+    <html lang="en" className={cn(plusJakartaSans.variable, geistMono.variable)}>
+      <body className="min-h-screen antialiased bg-slate-50 text-slate-900 font-sans">
         {children}
       </body>
     </html>
