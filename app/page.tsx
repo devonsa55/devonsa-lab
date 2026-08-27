@@ -26,6 +26,7 @@ import {
   IconBolt,
   IconHierarchy2,
   IconArrowRight,
+  IconArrowDown,
 } from "@tabler/icons-react";
 
 interface PresetQuery {
@@ -497,36 +498,80 @@ export default function DemoPage() {
 
             <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-4 pt-4 bg-muted/5">
               {/* Flowchart Diagram */}
-              <div className="rounded-xl border border-border/60 bg-muted/30 p-4 space-y-3">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                  End-to-End Execution Flow
-                </span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
-                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
-                    <span className="font-bold text-foreground block">1. User / Client Prompt</span>
+              <div className="rounded-xl border border-border/60 bg-muted/30 p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                    End-to-End Execution Flow
+                  </span>
+                  <span className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
+                    1 Canonical JSON ➔ 2 Native Renders
+                  </span>
+                </div>
+
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+                  {/* Step 1 */}
+                  <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">Step 1</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    </div>
+                    <span className="font-bold text-foreground text-xs block">User Query / Prompt</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Natural language observation & parameters entered in host interface.
+                      Natural language observation & parameters entered in client.
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
-                    <span className="font-bold text-foreground block">2. MCP Tool Invocation</span>
+                  {/* Arrow 1 */}
+                  <div className="flex items-center justify-center text-muted-foreground shrink-0 py-0.5 lg:py-0">
+                    <IconArrowRight className="w-4 h-4 hidden lg:block text-emerald-600" />
+                    <IconArrowDown className="w-4 h-4 block lg:hidden text-emerald-600" />
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold uppercase text-blue-600 dark:text-blue-400">Step 2</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    </div>
+                    <span className="font-bold text-foreground text-xs block">MCP Tool Call</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Official MCP Client sends <code>tools/call</code> JSON-RPC 2.0 via Streamable HTTP.
+                      Client invokes <code>tools/call</code> over Streamable HTTP.
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
-                    <span className="font-bold text-foreground block">3. Structured Schema</span>
+                  {/* Arrow 2 */}
+                  <div className="flex items-center justify-center text-muted-foreground shrink-0 py-0.5 lg:py-0">
+                    <IconArrowRight className="w-4 h-4 hidden lg:block text-blue-600" />
+                    <IconArrowDown className="w-4 h-4 block lg:hidden text-blue-600" />
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400">Step 3</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                    </div>
+                    <span className="font-bold text-foreground text-xs block">Structured Schema</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      MCP Server synthesizes data conforming strictly to typed Zod schema.
+                      MCP Server returns typed Zod JSON data contract.
                     </p>
                   </div>
 
-                  <div className="p-3 rounded-lg border border-border/60 bg-card space-y-1">
-                    <span className="font-bold text-foreground block">4. Dual Native Projection</span>
+                  {/* Arrow 3 */}
+                  <div className="flex items-center justify-center text-muted-foreground shrink-0 py-0.5 lg:py-0">
+                    <IconArrowRight className="w-4 h-4 hidden lg:block text-amber-600" />
+                    <IconArrowDown className="w-4 h-4 block lg:hidden text-amber-600" />
+                  </div>
+
+                  {/* Step 4 */}
+                  <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-mono font-bold uppercase text-purple-600 dark:text-purple-400">Step 4</span>
+                      <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    </div>
+                    <span className="font-bold text-foreground text-xs block">Dual Native Render</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Two isolated clients ingest identical payload into independent design systems.
+                      Single payload projects into 2 isolated design systems.
                     </p>
                   </div>
                 </div>
