@@ -6,6 +6,8 @@ import { MerchantCenterCard } from "@/components/MerchantCenterCard";
 import { AdsBanner } from "@/components/AdsBanner";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -22,74 +24,44 @@ import {
   IconLayersLinked,
   IconCheck,
   IconAdjustmentsHorizontal,
-  IconFlame,
-  IconArrowsExchange,
-  IconShip,
-  IconTrendingUp,
-  IconDiscount2,
 } from "@tabler/icons-react";
 
-interface MarketScenario {
-  id: string;
-  title: string;
+interface PresetQuery {
+  label: string;
   category: string;
   focusArea: "inventory" | "pricing" | "trend";
-  scenario: string;
   timeHorizon: string;
-  prompt: string;
-  icon: React.ReactNode;
-  badge: string;
-  badgeColor: string;
+  query: string;
 }
 
-const SCENARIOS: MarketScenario[] = [
+const PRESET_QUERIES: PresetQuery[] = [
   {
-    id: "rival-price-war",
-    title: "Competitor Price Undercut",
+    label: "🏷️ Competitor Price War",
     category: "Consumer Electronics",
     focusArea: "pricing",
-    scenario: "Aggressive competitor discount (-18%) on flagship 4K monitors",
     timeHorizon: "7d",
-    prompt: "Key competitor undercut our top 4K monitor SKU by 18%, shrinking margin and ad conversion share.",
-    icon: <IconDiscount2 className="w-4 h-4 text-rose-500" />,
-    badge: "Pricing Threat",
-    badgeColor: "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20",
+    query: "Key rival slashed 4K monitor prices by 18%, causing ad conversion share and margins to drop.",
   },
   {
-    id: "viral-demand-spike",
-    title: "Viral TikTok Demand Surge",
+    label: "🔥 Viral Demand Surge",
     category: "Beauty & Cosmetics",
     focusArea: "trend",
-    scenario: "Sudden +340% search velocity explosion from influencer coverage",
     timeHorizon: "30d",
-    prompt: "Viral TikTok campaign triggered a 340% spike in search demand for peptide glow serum.",
-    icon: <IconFlame className="w-4 h-4 text-amber-500" />,
-    badge: "Demand Surge",
-    badgeColor: "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20",
+    query: "Influencer review drove a 340% search velocity explosion for peptide glow serum.",
   },
   {
-    id: "supply-chain-bottleneck",
-    title: "Supply Chain Port Delay",
+    label: "🚢 Supply Chain Delay",
     category: "Apparel & Footwear",
     focusArea: "inventory",
-    scenario: "Shipping bottleneck delaying restock of winter parkas by 14 days",
     timeHorizon: "30d",
-    prompt: "Port congestion delayed winter jacket inventory; stock levels dropping to critical threshold.",
-    icon: <IconShip className="w-4 h-4 text-blue-500" />,
-    badge: "Stockout Risk",
-    badgeColor: "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
+    query: "Port congestion delayed winter jacket inventory; stock levels dropping to critical threshold.",
   },
   {
-    id: "market-share-growth",
-    title: "Category Market Expansion",
+    label: "📈 Search Growth Wave",
     category: "Specialty Coffee",
     focusArea: "trend",
-    scenario: "Rising regional interest in organic single-origin whole bean coffee",
     timeHorizon: "90d",
-    prompt: "Search interest for single-origin whole bean coffee up 28% across Midwest metro hubs.",
-    icon: <IconTrendingUp className="w-4 h-4 text-emerald-500" />,
-    badge: "Growth Wave",
-    badgeColor: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20",
+    query: "Search interest for single-origin whole bean coffee climbed 28% across target markets.",
   },
 ];
 
@@ -97,12 +69,17 @@ const CATEGORIES = [
   "Consumer Electronics",
   "Apparel & Footwear",
   "Beauty & Cosmetics",
-  "Specialty Coffee & Food",
+  "Specialty Coffee",
   "Home & Furniture",
   "Outdoor & Sports",
 ];
 
-const TIME_HORIZONS = ["7d", "30d", "90d", "ytd"];
+const TIME_HORIZONS = [
+  { value: "7d", label: "7 Days" },
+  { value: "30d", label: "30 Days" },
+  { value: "90d", label: "90 Days" },
+  { value: "ytd", label: "Year to Date" },
+];
 
 interface McpWire {
   endpoint: string;
@@ -111,15 +88,13 @@ interface McpWire {
 }
 
 export default function DemoPage() {
-  const [merchantId] = useState("merchant_8492");
-  const [selectedScenarioId, setSelectedScenarioId] = useState<string | null>(null);
-
-  // Dynamic parameters state
-  const [customPrompt, setCustomPrompt] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("Consumer Electronics");
-  const [selectedFocusArea, setSelectedFocusArea] = useState<"inventory" | "pricing" | "trend">("pricing");
-  const [selectedTimeHorizon, setSelectedTimeHorizon] = useState("7d");
-  const [isCustomConfigOpen, setIsCustomConfigOpen] = useState(false);
+  const [merchantId, setMerchantId] = useState("merchant_8492");
+  const [category, setCategory] = useState("Consumer Electronics");
+  const [focusArea, setFocusArea] = useState<"inventory" | "pricing" | "trend">("pricing");
+  const [timeHorizon, setTimeHorizon] = useState("7d");
+  const [queryMessage, setQueryMessage] = useState(
+    "Key rival slashed 4K monitor prices by 18%, causing ad conversion share and margins to drop."
+  );
 
   // Execution & result state
   const [loading, setLoading] = useState(false);
@@ -136,11 +111,11 @@ export default function DemoPage() {
   const [isModified, setIsModified] = useState(false);
 
   const executeMcpTool = async (params: {
-    query: string;
+    merchant_id: string;
     category: string;
     focus_area: "inventory" | "pricing" | "trend";
-    scenario?: string;
     time_horizon: string;
+    query: string;
   }) => {
     setLoading(true);
     setError(null);
@@ -150,12 +125,12 @@ export default function DemoPage() {
     setShowWirePanel(false);
 
     const toolArgs = {
-      merchant_id: merchantId,
-      focus_area: params.focus_area,
-      query: params.query,
+      merchant_id: params.merchant_id,
       category: params.category,
-      scenario: params.scenario || params.query,
+      focus_area: params.focus_area,
       time_horizon: params.time_horizon,
+      query: params.query,
+      scenario: params.query,
     };
 
     setLastExecutedArgs(toolArgs);
@@ -184,32 +159,31 @@ export default function DemoPage() {
     }
   };
 
-  const handleSelectScenario = (sc: MarketScenario) => {
-    setSelectedScenarioId(sc.id);
-    setSelectedCategory(sc.category);
-    setSelectedFocusArea(sc.focusArea);
-    setSelectedTimeHorizon(sc.timeHorizon);
-    setCustomPrompt(sc.prompt);
+  const handleApplyPreset = (preset: PresetQuery) => {
+    setCategory(preset.category);
+    setFocusArea(preset.focusArea);
+    setTimeHorizon(preset.timeHorizon);
+    setQueryMessage(preset.query);
 
     executeMcpTool({
-      query: sc.prompt,
-      category: sc.category,
-      focus_area: sc.focusArea,
-      scenario: sc.scenario,
-      time_horizon: sc.timeHorizon,
+      merchant_id: merchantId,
+      category: preset.category,
+      focus_area: preset.focusArea,
+      time_horizon: preset.timeHorizon,
+      query: preset.query,
     });
   };
 
-  const handleCustomSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customPrompt.trim()) return;
+    if (!merchantId.trim() || !queryMessage.trim()) return;
 
-    setSelectedScenarioId(null);
     executeMcpTool({
-      query: customPrompt.trim(),
-      category: selectedCategory,
-      focus_area: selectedFocusArea,
-      time_horizon: selectedTimeHorizon,
+      merchant_id: merchantId.trim(),
+      category,
+      focus_area: focusArea,
+      time_horizon: timeHorizon,
+      query: queryMessage.trim(),
     });
   };
 
@@ -266,107 +240,53 @@ export default function DemoPage() {
             One AI Agent query. <span className="text-emerald-600 dark:text-emerald-400">Two radical renders.</span>
           </h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            Select a live market scenario or craft a custom query. The agent invokes the MCP server tool with dynamic parameters, producing one shared JSON payload rendered into opposing design systems.
+            Configure parameters and send a natural query to the MCP server tool. The AI agent generates a single structured JSON payload rendered natively across opposing design systems.
           </p>
         </header>
 
-        {/* ── CARD 1: Dynamic Market Scenarios & AI Query Studio ── */}
+        {/* ── CARD 1: MCP Tool Parameter Form ── */}
         <Card className="shadow-md border-border/80 bg-card overflow-hidden">
           <CardHeader className="py-3.5 px-5 sm:px-6 border-b border-border/40 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <IconSparkles className="w-4 h-4 text-emerald-600" />
+              <IconAdjustmentsHorizontal className="w-4 h-4 text-emerald-600" />
               <CardTitle className="text-sm font-bold text-foreground">
-                Market Scenario Simulator & MCP Query Studio
+                MCP Tool Execution Parameters
               </CardTitle>
             </div>
             <span className="text-[11px] font-mono text-muted-foreground">
-              Dynamic Gemini Flash Tool Calls
+              Tool: get_merchant_insight
             </span>
           </CardHeader>
 
-          <CardContent className="p-5 sm:p-6 space-y-5">
-            {/* Clickable Market Scenario Cards */}
-            <div className="space-y-2.5">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
-                Choose a Dynamic Scenario:
-              </span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {SCENARIOS.map((sc) => {
-                  const isSelected = selectedScenarioId === sc.id;
-                  return (
-                    <button
-                      key={sc.id}
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleSelectScenario(sc)}
-                      className={`p-3.5 rounded-xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between space-y-3 ${
-                        isSelected
-                          ? "border-emerald-600 bg-emerald-50/50 dark:bg-emerald-950/20 shadow-sm ring-1 ring-emerald-600"
-                          : "border-border/80 bg-muted/20 hover:bg-muted/50 hover:border-border"
-                      } disabled:opacity-50`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-1.5 font-bold text-xs text-foreground">
-                          {sc.icon}
-                          <span>{sc.title}</span>
-                        </div>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${sc.badgeColor}`}>
-                          {sc.badge}
-                        </span>
-                      </div>
-
-                      <div>
-                        <p className="text-[11px] text-muted-foreground line-clamp-2 leading-relaxed">
-                          {sc.scenario}
-                        </p>
-                      </div>
-
-                      <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-                        <span>{sc.category}</span>
-                        <span>{sc.timeHorizon}</span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom Query Bar & Parameter Drawer */}
-            <form onSubmit={handleCustomSubmit} className="space-y-3 pt-2 border-t border-border/40">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={customPrompt}
-                  onChange={(e) => setCustomPrompt(e.target.value)}
-                  placeholder="Or write any custom retail query (e.g. 'Flash sale surge on organic roast beans in Tokyo')..."
-                  disabled={loading}
-                  className="flex-1 bg-muted/30 border border-input rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
-                />
-                <Button
-                  type="submit"
-                  disabled={loading || !customPrompt.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl h-10 px-5 gap-1.5 cursor-pointer shrink-0"
-                >
-                  {loading ? <IconLoader2 className="w-4 h-4 animate-spin" /> : <IconSend className="w-4 h-4" />}
-                  <span>Execute MCP</span>
-                </Button>
-              </div>
-
-              {/* Dynamic Parameter Fine-Tuning */}
-              <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
-                <span className="font-semibold text-foreground flex items-center gap-1">
-                  <IconAdjustmentsHorizontal className="w-3.5 h-3.5 text-emerald-600" />
-                  Parameters:
-                </span>
-
-                {/* Category select */}
-                <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-lg border border-border/60">
-                  <span className="text-[10px] uppercase font-mono text-muted-foreground">Industry:</span>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => setSelectedCategory(e.target.value)}
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Parameter Inputs Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                <div className="space-y-1.5">
+                  <Label htmlFor="merchantId" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Merchant ID
+                  </Label>
+                  <Input
+                    id="merchantId"
+                    value={merchantId}
+                    onChange={(e) => setMerchantId(e.target.value)}
                     disabled={loading}
-                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+                    placeholder="merchant_8492"
+                    className="font-mono text-xs bg-muted/20"
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="category" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Category / Industry
+                  </Label>
+                  <select
+                    id="category"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    disabled={loading}
+                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     {CATEGORIES.map((cat) => (
                       <option key={cat} value={cat} className="bg-popover text-foreground">
@@ -376,37 +296,89 @@ export default function DemoPage() {
                   </select>
                 </div>
 
-                {/* Focus area select */}
-                <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-lg border border-border/60">
-                  <span className="text-[10px] uppercase font-mono text-muted-foreground">Focus:</span>
+                <div className="space-y-1.5">
+                  <Label htmlFor="focusArea" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Focus Area
+                  </Label>
                   <select
-                    value={selectedFocusArea}
-                    onChange={(e) => setSelectedFocusArea(e.target.value as "inventory" | "pricing" | "trend")}
+                    id="focusArea"
+                    value={focusArea}
+                    onChange={(e) => setFocusArea(e.target.value as "inventory" | "pricing" | "trend")}
                     disabled={loading}
-                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="pricing" className="bg-popover text-foreground">Pricing Competitiveness</option>
-                    <option value="inventory" className="bg-popover text-foreground">Inventory & Supply</option>
-                    <option value="trend" className="bg-popover text-foreground">Search Trends</option>
+                    <option value="inventory" className="bg-popover text-foreground">Inventory & Stockouts</option>
+                    <option value="trend" className="bg-popover text-foreground">Market Search Trends</option>
                   </select>
                 </div>
 
-                {/* Time horizon select */}
-                <div className="flex items-center gap-1.5 bg-muted/40 px-2.5 py-1 rounded-lg border border-border/60">
-                  <span className="text-[10px] uppercase font-mono text-muted-foreground">Window:</span>
+                <div className="space-y-1.5">
+                  <Label htmlFor="timeHorizon" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Time Window
+                  </Label>
                   <select
-                    value={selectedTimeHorizon}
-                    onChange={(e) => setSelectedTimeHorizon(e.target.value)}
+                    id="timeHorizon"
+                    value={timeHorizon}
+                    onChange={(e) => setTimeHorizon(e.target.value)}
                     disabled={loading}
-                    className="bg-transparent text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+                    className="w-full h-9 rounded-md border border-input bg-muted/20 px-3 text-xs font-medium text-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     {TIME_HORIZONS.map((th) => (
-                      <option key={th} value={th} className="bg-popover text-foreground">
-                        {th.toUpperCase()}
+                      <option key={th.value} value={th.value} className="bg-popover text-foreground">
+                        {th.label}
                       </option>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              {/* Natural Language Query Message */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="queryMessage" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Query Message / Observation
+                  </Label>
+                  <span className="text-[11px] text-muted-foreground">
+                    Sent to MCP Tool handler & Gemini Flash
+                  </span>
+                </div>
+                <Input
+                  id="queryMessage"
+                  value={queryMessage}
+                  onChange={(e) => setQueryMessage(e.target.value)}
+                  disabled={loading}
+                  placeholder="e.g. Rival merchant undercut top summer apparel SKUs by 15%..."
+                  className="bg-muted/20 text-xs text-foreground font-medium h-10"
+                  required
+                />
+              </div>
+
+              {/* Preset Quick Chips */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-[11px] text-muted-foreground font-medium mr-1">Quick Presets:</span>
+                  {PRESET_QUERIES.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      disabled={loading}
+                      onClick={() => handleApplyPreset(preset)}
+                      className="text-[11px] font-medium px-2.5 py-1 rounded-md border border-border/80 bg-muted/40 hover:bg-muted text-foreground transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+
+                <Button
+                  type="submit"
+                  disabled={loading || !queryMessage.trim()}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg h-9 px-5 gap-1.5 cursor-pointer"
+                >
+                  {loading ? <IconLoader2 className="w-3.5 h-3.5 animate-spin" /> : <IconSend className="w-3.5 h-3.5" />}
+                  <span>Execute MCP Tool</span>
+                </Button>
               </div>
             </form>
           </CardContent>
@@ -419,7 +391,7 @@ export default function DemoPage() {
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                  Agent Interaction & Dynamic MCP Execution
+                  Agent Interaction & MCP Protocol Execution
                 </span>
               </div>
               <span className="text-[10px] font-mono text-muted-foreground">
@@ -435,12 +407,13 @@ export default function DemoPage() {
                 </div>
                 <div className="space-y-1.5 flex-1">
                   <div className="bg-muted/60 border border-border/60 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-foreground font-medium">
-                    {String(lastExecutedArgs.query || lastExecutedArgs.scenario)}
+                    {String(lastExecutedArgs.query)}
                   </div>
                   <div className="flex flex-wrap gap-2 text-[10px] font-mono text-muted-foreground px-1">
+                    <span className="bg-muted px-2 py-0.5 rounded">ID: {String(lastExecutedArgs.merchant_id)}</span>
                     <span className="bg-muted px-2 py-0.5 rounded">Category: {String(lastExecutedArgs.category)}</span>
                     <span className="bg-muted px-2 py-0.5 rounded">Focus: {String(lastExecutedArgs.focus_area)}</span>
-                    <span className="bg-muted px-2 py-0.5 rounded">Horizon: {String(lastExecutedArgs.time_horizon)}</span>
+                    <span className="bg-muted px-2 py-0.5 rounded">Window: {String(lastExecutedArgs.time_horizon)}</span>
                   </div>
                 </div>
               </div>
@@ -458,7 +431,7 @@ export default function DemoPage() {
                       <>
                         <IconLoader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
                         <span>
-                          Agent calling MCP Tool: <code>get_merchant_insight({String(lastExecutedArgs.focus_area)})</code> with dynamic parameters…
+                          Agent calling MCP Tool: <code>get_merchant_insight({String(lastExecutedArgs.focus_area)})</code>…
                         </span>
                       </>
                     ) : (
@@ -504,9 +477,9 @@ export default function DemoPage() {
               <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
                 <IconLayersLinked className="w-6 h-6" />
               </div>
-              <p className="text-sm font-bold text-foreground">Select a market scenario above to execute the MCP tool</p>
+              <p className="text-sm font-bold text-foreground">Submit the parameter form or pick a preset to execute MCP</p>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Watch how dynamic scenario arguments generate structured JSON rendered natively on both surfaces.
+                Watch how structured arguments generate a shared JSON payload rendered natively on both opposing surfaces.
               </p>
             </CardContent>
           </Card>
