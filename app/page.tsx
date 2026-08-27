@@ -4,36 +4,56 @@ import { useState } from "react";
 import type { MerchantInsight } from "@/types/insight";
 import { MerchantCenterCard } from "@/components/MerchantCenterCard";
 import { AdsBanner } from "@/components/AdsBanner";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
 import {
   IconSparkles,
   IconChevronDown,
   IconLoader2,
   IconTerminal2,
   IconCode,
-  IconAdjustmentsHorizontal,
   IconAlertCircle,
+  IconSend,
+  IconUser,
+  IconRobot,
   IconLayersLinked,
+  IconCheck,
 } from "@tabler/icons-react";
 
-const FOCUS_AREAS = [
-  { value: "inventory", label: "Inventory Analysis" },
-  { value: "pricing", label: "Pricing Competitiveness" },
-  { value: "trend", label: "Market Search Trends" },
-] as const;
+interface SuggestionChip {
+  id: string;
+  label: string;
+  icon: string;
+  focusArea: "inventory" | "pricing" | "trend";
+  prompt: string;
+}
+
+const SUGGESTIONS: SuggestionChip[] = [
+  {
+    id: "pricing",
+    label: "Check competitor pricing undercuts",
+    icon: "🏷️",
+    focusArea: "pricing",
+    prompt: "Check competitor pricing competitiveness on top summer items",
+  },
+  {
+    id: "inventory",
+    label: "Identify catalog stockout risks",
+    icon: "📦",
+    focusArea: "inventory",
+    prompt: "Analyze catalog inventory levels and flag critical stockout risks",
+  },
+  {
+    id: "trend",
+    label: "Forecast consumer search demand",
+    icon: "📈",
+    focusArea: "trend",
+    prompt: "What are the latest consumer search trends and market demand velocity?",
+  },
+];
 
 interface McpWire {
   endpoint: string;
@@ -42,12 +62,14 @@ interface McpWire {
 }
 
 export default function DemoPage() {
-  const [merchantId, setMerchantId] = useState("merchant_8492");
-  const [focusArea, setFocusArea] = useState<"inventory" | "pricing" | "trend">("inventory");
+  const [merchantId] = useState("merchant_8492");
+  const [selectedPrompt, setSelectedPrompt] = useState<string | null>(null);
+  const [customInput, setCustomInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insight, setInsight] = useState<MerchantInsight | null>(null);
   const [mcpWire, setMcpWire] = useState<McpWire | null>(null);
+  const [activeFocusArea, setActiveFocusArea] = useState<"inventory" | "pricing" | "trend">("pricing");
 
   // Panel open/close states
   const [showEditPanel, setShowEditPanel] = useState(false);
@@ -58,10 +80,9 @@ export default function DemoPage() {
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [isModified, setIsModified] = useState(false);
 
-  const handleFetchInsight = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!merchantId.trim()) return;
-
+  const handleExecutePrompt = async (promptText: string, focus: "inventory" | "pricing" | "trend") => {
+    setSelectedPrompt(promptText);
+    setActiveFocusArea(focus);
     setLoading(true);
     setError(null);
     setJsonError(null);
@@ -74,8 +95,8 @@ export default function DemoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          merchant_id: merchantId.trim(),
-          focus_area: focusArea,
+          merchant_id: merchantId,
+          focus_area: focus,
         }),
       });
 
@@ -90,10 +111,28 @@ export default function DemoPage() {
       setEditedJson(JSON.stringify(data.insight, null, 2));
     } catch (err) {
       console.error("Error calling MCP tool:", err);
-      setError(err instanceof Error ? err.message : "Failed to fetch insight from MCP tool");
+      setError(err instanceof Error ? err.message : "Failed to execute MCP tool");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCustomSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customInput.trim()) return;
+
+    // Detect focus area keyword or default to active
+    let focus: "inventory" | "pricing" | "trend" = "pricing";
+    const lower = customInput.toLowerCase();
+    if (lower.includes("stock") || lower.includes("inventory") || lower.includes("sku")) {
+      focus = "inventory";
+    } else if (lower.includes("trend") || lower.includes("search") || lower.includes("demand")) {
+      focus = "trend";
+    }
+
+    const text = customInput.trim();
+    setCustomInput("");
+    handleExecutePrompt(text, focus);
   };
 
   const handleApplyEdit = () => {
@@ -118,7 +157,6 @@ export default function DemoPage() {
       setInsight(validatedInsight);
       setIsModified(true);
 
-      // Keep MCP Wire Protocol Inspector in sync with edited payload
       if (mcpWire) {
         setMcpWire({
           ...mcpWire,
@@ -126,12 +164,7 @@ export default function DemoPage() {
             jsonrpc: "2.0",
             id: 1,
             result: {
-              content: [
-                {
-                  type: "text",
-                  text: JSON.stringify(validatedInsight),
-                },
-              ],
+              content: [{ type: "text", text: JSON.stringify(validatedInsight) }],
               structuredContent: validatedInsight,
             },
           },
@@ -143,146 +176,152 @@ export default function DemoPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50/50 dark:bg-background text-foreground py-10 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-50/60 dark:bg-background text-foreground py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-8">
         {/* Header */}
         <header className="text-center space-y-2.5">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-            Model Context Protocol Demo
+            Live Model Context Protocol Demo
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-            One MCP tool call. <span className="text-emerald-600 dark:text-emerald-400">Two native renders.</span>
+            One AI Agent query. <span className="text-emerald-600 dark:text-emerald-400">Two native renders.</span>
           </h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            A single structured JSON payload generated by an MCP server tool, rendered simultaneously into two native product design systems.
+            Ask the merchant assistant for insights. A single agent invokes the MCP server tool and delivers one structured JSON payload rendered natively across surfaces.
           </p>
         </header>
 
-        {/* Input Parameters Card */}
-        <Card className="shadow-sm border-border/80 bg-card">
-          <CardHeader className="pb-3 border-b border-border/40 bg-muted/20">
-            <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
-              <IconAdjustmentsHorizontal className="w-4 h-4 text-emerald-600" />
-              Tool Parameters
+        {/* Interactive Chat & Suggestion Chips Bar */}
+        <Card className="shadow-md border-border/80 bg-card overflow-hidden">
+          <CardContent className="p-5 sm:p-6 space-y-4">
+            <div className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                Suggested Merchant Queries (Click to trigger MCP Tool)
+              </span>
+              <div className="flex flex-wrap gap-2">
+                {SUGGESTIONS.map((chip) => (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    disabled={loading}
+                    onClick={() => handleExecutePrompt(chip.prompt, chip.focusArea)}
+                    className={`text-xs font-medium px-3.5 py-2 rounded-xl border transition-all duration-150 flex items-center gap-2 cursor-pointer ${
+                      selectedPrompt === chip.prompt
+                        ? "bg-emerald-600 text-white border-emerald-600 shadow-sm scale-[1.02]"
+                        : "bg-muted/40 hover:bg-muted text-foreground border-border/80 hover:border-border"
+                    } disabled:opacity-50`}
+                  >
+                    <span>{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <CardDescription className="text-xs">
-              Configure parameters passed to the MCP <code>get_merchant_insight</code> tool.
-            </CardDescription>
-          </CardHeader>
 
-          <CardContent className="pt-4 space-y-4">
-            <form onSubmit={handleFetchInsight} className="space-y-4 sm:space-y-0 sm:flex sm:items-end sm:gap-4">
-              <div className="flex-1 space-y-1.5">
-                <Label htmlFor="merchantId" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Merchant ID
-                </Label>
-                <Input
-                  id="merchantId"
-                  value={merchantId}
-                  onChange={(e) => setMerchantId(e.target.value)}
-                  placeholder="e.g. merchant_8492"
-                  required
-                  disabled={loading}
-                  className="bg-background font-mono text-sm"
-                />
-              </div>
-
-              <div className="w-full sm:w-64 space-y-1.5">
-                <Label htmlFor="focusArea" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Focus Area
-                </Label>
-                <Select
-                  value={focusArea}
-                  onValueChange={(val) => {
-                    if (val) setFocusArea(val as "inventory" | "pricing" | "trend");
-                  }}
-                  disabled={loading}
-                >
-                  <SelectTrigger id="focusArea" className="w-full h-9 bg-background font-medium text-sm">
-                    <SelectValue placeholder="Select focus area" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FOCUS_AREAS.map((area) => (
-                      <SelectItem key={area.value} value={area.value}>
-                        {area.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="w-full sm:w-auto pt-2 sm:pt-0">
-                <Button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full sm:w-auto h-9 px-5 font-semibold shadow-sm gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90"
-                >
-                  {loading ? (
-                    <>
-                      <IconLoader2 className="w-4 h-4 animate-spin" />
-                      <span>Calling MCP Tool…</span>
-                    </>
-                  ) : (
-                    <>
-                      <IconSparkles className="w-4 h-4" />
-                      <span>Fetch insight</span>
-                    </>
-                  )}
-                </Button>
-              </div>
+            {/* Custom Input Field */}
+            <form onSubmit={handleCustomSubmit} className="flex items-center gap-2 pt-2 border-t border-border/40">
+              <input
+                type="text"
+                value={customInput}
+                onChange={(e) => setCustomInput(e.target.value)}
+                placeholder="Or ask anything (e.g., 'Compare my pricing vs competitors')..."
+                disabled={loading}
+                className="flex-1 bg-muted/30 border border-input rounded-xl px-4 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
+              />
+              <Button
+                type="submit"
+                disabled={loading || !customInput.trim()}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-xl h-9 px-4 gap-1.5 cursor-pointer"
+              >
+                <IconSend className="w-3.5 h-3.5" />
+                <span>Ask Agent</span>
+              </Button>
             </form>
-
-            <div className="pt-3 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground gap-2">
-              <span className="flex items-center gap-1.5 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                Stateless MCP Streamable HTTP Transport
-              </span>
-              <span className="font-mono text-[11px] bg-muted/60 px-2 py-0.5 rounded border border-border/50">
-                Browser ➔ /api/call-tool ➔ MCP Client ➔ /api/mcp
-              </span>
-            </div>
           </CardContent>
         </Card>
 
-        {/* Error State */}
+        {/* Conversational Trace / Status */}
+        {selectedPrompt && (
+          <div className="space-y-4 max-w-4xl mx-auto">
+            {/* User Prompt Message */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300">
+                <IconUser className="w-4 h-4" />
+              </div>
+              <div className="bg-muted/60 border border-border/60 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-foreground">
+                {selectedPrompt}
+              </div>
+            </div>
+
+            {/* Agent / MCP Tool Calling State */}
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center shrink-0 text-white shadow-xs">
+                <IconRobot className="w-4 h-4" />
+              </div>
+
+              <div className="flex-1 space-y-3">
+                {/* Protocol Badge */}
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-mono">
+                  {loading ? (
+                    <>
+                      <IconLoader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                      <span>
+                        Agent calling MCP Tool: <code>get_merchant_insight({activeFocusArea})</code>
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        MCP Tool executed: <code>get_merchant_insight({activeFocusArea})</code>
+                      </span>
+                    </>
+                  )}
+                </div>
+
+                {/* Loading Skeleton during tool execution */}
+                {loading && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse pt-2">
+                    <div className="rounded-2xl border border-zinc-200 p-6 space-y-4 bg-white/60 h-64" />
+                    <div className="rounded-2xl border border-blue-200 p-6 space-y-4 bg-blue-50/40 h-64" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error Notification */}
         {error && (
           <Card className="border-destructive/50 bg-destructive/10 text-destructive shadow-sm">
             <CardContent className="p-4 flex items-start gap-3">
               <IconAlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-sm">MCP Request Failed</p>
+                <p className="font-semibold text-sm">MCP Tool Execution Failed</p>
                 <p className="text-xs opacity-90 mt-0.5">{error}</p>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Empty Initial State */}
-        {!insight && !loading && !error && (
-          <Card className="text-center py-10 px-6 border-dashed border-2 bg-muted/20 shadow-none">
+        {/* Initial Empty State (before first click) */}
+        {!insight && !loading && !error && !selectedPrompt && (
+          <Card className="text-center py-12 px-6 border-dashed border-2 bg-muted/20 shadow-none">
             <CardContent className="p-0 space-y-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
-                <IconLayersLinked className="w-5 h-5" />
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
+                <IconLayersLinked className="w-6 h-6" />
               </div>
-              <CardTitle className="text-base font-bold">Ready to execute MCP tool</CardTitle>
-              <CardDescription className="text-xs max-w-xs mx-auto">
-                Click &quot;Fetch insight&quot; to invoke the MCP server tool and see the dual render.
-              </CardDescription>
+              <p className="text-sm font-bold text-foreground">Click a suggestion chip above to begin</p>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                Watch how a single prompt triggers the MCP tool to generate structured JSON rendered natively on both Google surfaces.
+              </p>
             </CardContent>
           </Card>
         )}
 
-        {/* Loading Skeleton */}
-        {loading && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-pulse">
-            <Card className="p-6 space-y-4 h-64 bg-muted/40" />
-            <Card className="p-6 space-y-4 h-64 bg-blue-50/40 border-blue-200/50" />
-          </div>
-        )}
-
-        {/* Dual Surface Output */}
-        {insight && (
+        {/* Dual Surface Output Section */}
+        {insight && !loading && (
           <section className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
               {/* Surface 1: Merchant Center */}
@@ -292,7 +331,7 @@ export default function DemoPage() {
               <AdsBanner data={insight} />
             </div>
 
-            {/* ── Panel 1: Edit & Re-render ── */}
+            {/* ── Panel 1: Edit & Live Re-render ── */}
             <Collapsible open={showEditPanel} onOpenChange={setShowEditPanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
               <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
                 <div className="flex items-center gap-2.5">
