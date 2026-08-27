@@ -12,6 +12,13 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "@/components/ui/select";
+import {
   IconSparkles,
   IconBolt,
   IconChevronDown,
@@ -187,19 +194,24 @@ export default function DemoPage() {
                 <Label htmlFor="focusArea" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Focus Area
                 </Label>
-                <select
-                  id="focusArea"
+                <Select
                   value={focusArea}
-                  onChange={(e) => setFocusArea(e.target.value as "inventory" | "pricing" | "trend")}
+                  onValueChange={(val) => {
+                    if (val) setFocusArea(val as "inventory" | "pricing" | "trend");
+                  }}
                   disabled={loading}
-                  className="w-full h-9 px-3 py-1 bg-background border border-input rounded-md text-sm font-medium shadow-2xs focus:outline-none focus:ring-2 focus:ring-ring transition-colors cursor-pointer"
                 >
-                  {FOCUS_AREAS.map((area) => (
-                    <option key={area.value} value={area.value}>
-                      {area.label}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger id="focusArea" className="w-full h-9 bg-background shadow-2xs font-medium text-sm">
+                    <SelectValue placeholder="Select focus area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FOCUS_AREAS.map((area) => (
+                      <SelectItem key={area.value} value={area.value}>
+                        {area.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="w-full sm:w-auto pt-2 sm:pt-0">
