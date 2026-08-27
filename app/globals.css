@@ -135,3 +135,17 @@ body {
     @apply font-sans;
   }
 }
+
+/* Preset b7kBsBkh7b: Nova style, Green/Zinc theme, medium radius */
+.preset-b7kBsBkh7b {
+  --primary: oklch(0.527 0.154 150.069);
+  --primary-foreground: oklch(0.982 0.018 155.826);
+  --radius: 0.5rem;
+}
+
+/* Preset b3ZzpQduoy: Maia style, Blue/Mist theme, large radius, emerald chart */
+.preset-b3ZzpQduoy {
+  --primary: oklch(0.488 0.243 264.376);
+  --primary-foreground: oklch(0.985 0 0);
+  --radius: 1rem;
+}
