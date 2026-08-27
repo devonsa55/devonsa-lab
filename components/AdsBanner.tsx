@@ -16,18 +16,6 @@ export function AdsBanner({ data, className = "", onAction }: AdsBannerProps) {
       className={`rounded-none border-2 border-black dark:border-white bg-blue-600 text-white p-6 sm:p-7 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] dark:shadow-[6px_6px_0px_0px_rgba(255,255,255,0.9)] flex flex-col justify-between h-full space-y-6 ${className}`}
       aria-label="Geometric Color Surface"
     >
-      {/* Top Geometric Tag */}
-      <div className="flex items-center justify-between border-b-2 border-white/30 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="bg-yellow-400 text-black text-xs font-black uppercase px-2 py-0.5 rounded-none tracking-wider">
-            Surface B — Geometric Visual
-          </span>
-        </div>
-        <span className="text-[11px] font-black uppercase tracking-widest text-blue-200">
-          Sharp Square • Vivid Color
-        </span>
-      </div>
-
       {/* Main Copy */}
       <div className="space-y-2.5 flex-1">
         <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tight text-white leading-tight">

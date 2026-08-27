@@ -11,18 +11,6 @@ export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
 
   return (
     <div className="font-serif border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 sm:p-7 shadow-xs flex flex-col justify-between h-full space-y-6 text-zinc-900 dark:text-zinc-100 rounded-sm">
-      {/* Top Editorial Masthead Tag */}
-      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
-        <div className="flex items-center gap-2">
-          <span className="font-serif italic text-xs tracking-wider text-zinc-500 dark:text-zinc-400">
-            Surface A — Editorial Dispatch
-          </span>
-        </div>
-        <span className="font-serif text-[11px] uppercase tracking-widest text-zinc-400">
-          Monochrome • Serif
-        </span>
-      </div>
-
       {/* Main Editorial Copy */}
       <div className="space-y-3 flex-1">
         <h3 className="font-serif text-xl sm:text-2xl font-normal tracking-tight text-zinc-900 dark:text-zinc-100 leading-snug">
