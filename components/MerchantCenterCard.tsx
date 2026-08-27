@@ -1,14 +1,5 @@
 import React, { useId } from "react";
-import { MerchantInsight } from "@/types/insight";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  IconBuildingStore,
-  IconTrendingUp,
-  IconTrendingDown,
-  IconMinus,
-  IconArrowRight,
-} from "@tabler/icons-react";
+import type { MerchantInsight } from "@/types/insight";
 
 export interface MerchantCenterCardProps {
   data: MerchantInsight;
@@ -19,83 +10,63 @@ export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
   const trend = data.metric?.trend;
 
   return (
-    <div className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 shadow-sm flex flex-col justify-between h-full space-y-6">
-      {/* Top Tag */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
-          <IconBuildingStore className="w-3.5 h-3.5" />
-          <span>Merchant Center</span>
+    <div className="font-serif border border-zinc-300 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 sm:p-7 shadow-xs flex flex-col justify-between h-full space-y-6 text-zinc-900 dark:text-zinc-100 rounded-sm">
+      {/* Top Editorial Masthead Tag */}
+      <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3">
+        <div className="flex items-center gap-2">
+          <span className="font-serif italic text-xs tracking-wider text-zinc-500 dark:text-zinc-400">
+            Surface A — Editorial Dispatch
+          </span>
         </div>
-        <span className="text-[11px] font-mono text-zinc-400">Surface 1</span>
+        <span className="font-serif text-[11px] uppercase tracking-widest text-zinc-400">
+          Monochrome • Serif
+        </span>
       </div>
 
-      {/* Main Copy */}
-      <div className="space-y-2 flex-1">
-        <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100 leading-snug">
+      {/* Main Editorial Copy */}
+      <div className="space-y-3 flex-1">
+        <h3 className="font-serif text-xl sm:text-2xl font-normal tracking-tight text-zinc-900 dark:text-zinc-100 leading-snug">
           {data.headline}
         </h3>
-        <p className="text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+        <p className="font-serif text-sm text-zinc-600 dark:text-zinc-400 leading-relaxed italic">
           {data.detail}
         </p>
       </div>
 
-      {/* Metric & Sparkline */}
-      <div className="flex items-end justify-between gap-4 p-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800">
+      {/* Monochrome Metric & Sparkline Box */}
+      <div className="border-t border-b border-zinc-200 dark:border-zinc-800 py-4 flex items-end justify-between gap-4">
         <div>
-          <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider block">
+          <span className="font-serif text-xs uppercase tracking-widest text-zinc-400 block">
             {data.metric?.label}
           </span>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-2xl font-bold font-mono text-zinc-900 dark:text-zinc-100">
+          <div className="flex items-baseline gap-2.5 mt-1">
+            <span className="font-serif text-3xl font-normal text-zinc-900 dark:text-zinc-100 tracking-tight">
               {data.metric?.value}
             </span>
-            <TrendBadge trend={trend} />
+            <span className="font-serif italic text-xs text-zinc-500">
+              {trend === "up" ? "(Increasing)" : trend === "down" ? "(Decreasing)" : "(Steady)"}
+            </span>
           </div>
         </div>
 
-        {/* Minimal Sparkline */}
-        <div className="w-28 h-10 flex items-center justify-end">
-          <SparklineChart chart={data.chart} gradientId={gradientId} />
+        {/* Minimalist Monochrome Sparkline */}
+        <div className="w-32 h-10 flex items-center justify-end">
+          <MonochromeSparkline chart={data.chart} gradientId={gradientId} />
         </div>
       </div>
 
-      {/* Action Button */}
-      <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm rounded-xl py-2.5 shadow-sm gap-2 cursor-pointer transition-colors">
-        <span>{data.action}</span>
-        <IconArrowRight className="w-4 h-4" />
-      </Button>
+      {/* Minimalist Editorial Button */}
+      <button
+        type="button"
+        className="w-full font-serif text-sm tracking-wide bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 py-3 px-4 transition-colors cursor-pointer text-center"
+      >
+        {data.action} →
+      </button>
     </div>
   );
 }
 
-function TrendBadge({ trend }: { trend?: "up" | "down" | "flat" }) {
-  if (trend === "up") {
-    return (
-      <Badge variant="outline" className="gap-1 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 rounded-md">
-        <IconTrendingUp className="w-3 h-3" />
-        Up
-      </Badge>
-    );
-  }
-
-  if (trend === "down") {
-    return (
-      <Badge variant="outline" className="gap-1 text-[10px] font-semibold text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-300 dark:border-rose-800 rounded-md">
-        <IconTrendingDown className="w-3 h-3" />
-        Down
-      </Badge>
-    );
-  }
-
-  return (
-    <Badge variant="outline" className="gap-1 text-[10px] font-semibold text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 rounded-md">
-      <IconMinus className="w-3 h-3" />
-      Flat
-    </Badge>
-  );
-}
-
-function SparklineChart({ chart, gradientId }: { chart?: number[]; gradientId: string }) {
+function MonochromeSparkline({ chart, gradientId }: { chart?: number[]; gradientId: string }) {
   if (!chart || chart.length === 0) return null;
 
   const width = 120;
@@ -129,20 +100,21 @@ function SparklineChart({ chart, gradientId }: { chart?: number[]; gradientId: s
     <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible" aria-hidden="true">
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#10b981" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+          <stop offset="0%" stopColor="#000000" stopOpacity="0.1" />
+          <stop offset="100%" stopColor="#000000" stopOpacity="0.0" />
         </linearGradient>
       </defs>
       <path d={areaPath} fill={`url(#${gradientId})`} />
       <path
         d={linePath}
         fill="none"
-        stroke="#10b981"
-        strokeWidth="2"
+        stroke="currentColor"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
+        className="text-zinc-800 dark:text-zinc-200"
       />
-      <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill="#10b981" />
+      <circle cx={lastPoint.x} cy={lastPoint.y} r="2.5" className="fill-zinc-900 dark:fill-zinc-100" />
     </svg>
   );
 }

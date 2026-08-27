@@ -323,12 +323,43 @@ export default function DemoPage() {
         {/* Dual Surface Output Section */}
         {insight && !loading && (
           <section className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-              {/* Surface 1: Merchant Center */}
-              <MerchantCenterCard data={insight} />
+            <div className="flex items-center justify-between pb-2 border-b border-border/40">
+              <div>
+                <h2 className="text-lg font-bold text-foreground tracking-tight">
+                  Dual Native Surface Renders
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  The exact same MCP JSON payload rendered under two radically different design systems.
+                </p>
+              </div>
+            </div>
 
-              {/* Surface 2: Google Ads */}
-              <AdsBanner data={insight} />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
+              {/* Surface 1: Editorial Serif Grayscale */}
+              <div className="space-y-2 flex flex-col">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-serif italic text-zinc-600 dark:text-zinc-400">
+                    Surface A: Editorial Dispatch
+                  </span>
+                  <Badge variant="outline" className="text-[10px] font-mono border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
+                    100% Serif • Grayscale
+                  </Badge>
+                </div>
+                <MerchantCenterCard data={insight} />
+              </div>
+
+              {/* Surface 2: Constructivist Square & Color */}
+              <div className="space-y-2 flex flex-col">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                    Surface B: Constructivist Visual
+                  </span>
+                  <Badge className="text-[10px] font-mono bg-yellow-400 text-black border-none font-black rounded-none">
+                    Zero Radius • Vivid Color
+                  </Badge>
+                </div>
+                <AdsBanner data={insight} />
+              </div>
             </div>
 
             {/* ── Panel 1: Edit & Live Re-render ── */}

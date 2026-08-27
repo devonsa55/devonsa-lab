@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
+import { Plus_Jakarta_Sans, Geist_Mono, Newsreader } from "next/font/google";
 import { cn } from "@/lib/utils";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -14,6 +14,12 @@ const geistMono = Geist_Mono({
   variable: "--font-mono",
 });
 
+const serifFont = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  style: ["normal", "italic"],
+});
+
 export const metadata: Metadata = {
   title: "MCP Multi-Surface Demo",
   description: "One MCP tool call. Two native renders.",
@@ -25,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(plusJakartaSans.variable, geistMono.variable)}>
+    <html lang="en" className={cn(plusJakartaSans.variable, geistMono.variable, serifFont.variable)}>
       <body className="min-h-screen antialiased bg-slate-50 text-slate-900 font-sans">
         {children}
       </body>
