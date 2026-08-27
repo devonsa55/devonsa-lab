@@ -1,0 +1,129 @@
+import { NextRequest, NextResponse } from "next/server";
+import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
+import { z } from "zod";
+
+export const runtime = "nodejs";
+
+const CallToolRequestSchema = z.object({
+  merchant_id: z
+    .string({ message: "merchant_id must be a string" })
+    .min(1, "merchant_id cannot be empty"),
+  focus_area: z.enum(["inventory", "pricing", "trend"], {
+    message: "focus_area must be one of: 'inventory', 'pricing', 'trend'",
+  }),
+});
+
+export async function POST(req: NextRequest) {
+  let client: Client | null = null;
+
+  try {
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid JSON body in request" },
+        { status: 400 }
+      );
+    }
+
+    const validationResult = CallToolRequestSchema.safeParse(body);
+    if (!validationResult.success) {
+      const firstIssue = validationResult.error.issues[0];
+      const message = firstIssue?.message || "Invalid request parameters";
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    const { merchant_id, focus_area } = validationResult.data;
+
+    // Dynamically determine origin, handling Vercel reverse proxy headers and localhost IPv4/IPv6
+    const forwardedProto = req.headers.get("x-forwarded-proto");
+    const forwardedHost = req.headers.get("x-forwarded-host");
+    let origin = req.nextUrl.origin;
+
+    if (forwardedProto && forwardedHost) {
+      origin = `${forwardedProto}://${forwardedHost}`;
+    } else if (origin.includes("localhost")) {
+      origin = origin.replace("localhost", "127.0.0.1");
+    }
+
+    const mcpUrl = new URL("/api/mcp", origin);
+
+    // Initialize MCP Client and Streamable HTTP Transport
+    const transport = new StreamableHTTPClientTransport(mcpUrl);
+    client = new Client(
+      {
+        name: "call-tool-client",
+        version: "1.0.0",
+      },
+      {
+        capabilities: {},
+      }
+    );
+
+    // Connect to MCP endpoint
+    await client.connect(transport);
+
+    // Call get_merchant_insight tool
+    const result = await client.callTool({
+      name: "get_merchant_insight",
+      arguments: {
+        merchant_id,
+        focus_area,
+      },
+    });
+
+    if (result.isError) {
+      let errorMessage = "Tool execution failed";
+      if (Array.isArray(result.content) && result.content.length > 0) {
+        const firstContent = result.content[0];
+        if (firstContent && firstContent.type === "text" && typeof firstContent.text === "string") {
+          try {
+            const parsed = JSON.parse(firstContent.text);
+            errorMessage = parsed.error || firstContent.text;
+          } catch {
+            errorMessage = firstContent.text;
+          }
+        }
+      }
+      return NextResponse.json({ error: errorMessage }, { status: 500 });
+    }
+
+    // Extract structured insight JSON object
+    let insight = result.structuredContent;
+
+    if (!insight && Array.isArray(result.content) && result.content.length > 0) {
+      const firstContent = result.content[0];
+      if (firstContent && firstContent.type === "text" && typeof firstContent.text === "string") {
+        try {
+          insight = JSON.parse(firstContent.text);
+        } catch {
+          return NextResponse.json(
+            { error: "Failed to parse tool output text as JSON" },
+            { status: 500 }
+          );
+        }
+      }
+    }
+
+    if (!insight) {
+      return NextResponse.json(
+        { error: "No insight returned from MCP tool" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(insight, { status: 200 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Internal server error occurred";
+    return NextResponse.json({ error: message }, { status: 500 });
+  } finally {
+    if (client) {
+      try {
+        await client.close();
+      } catch (closeError) {
+        console.warn("Error closing MCP client:", closeError);
+      }
+    }
+  }
+}
