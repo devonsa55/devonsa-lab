@@ -29,6 +29,9 @@ const serifFont = Newsreader({
 export const metadata: Metadata = {
   title: "MCP Multi-Surface Demo",
   description: "One MCP tool call. Two native renders.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
