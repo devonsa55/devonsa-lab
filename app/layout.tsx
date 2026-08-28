@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { Plus_Jakarta_Sans, Geist_Mono, Newsreader } from "next/font/google";
+import { Geist, Space_Grotesk, Geist_Mono, Newsreader } from "next/font/google";
 import { cn } from "@/lib/utils";
 
-const plusJakartaSans = Plus_Jakarta_Sans({
+const geist = Geist({
   subsets: ["latin"],
   variable: "--font-sans",
+  display: "swap",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-heading",
   display: "swap",
 });
 
@@ -31,8 +37,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(plusJakartaSans.variable, geistMono.variable, serifFont.variable)}>
-      <body className="min-h-screen antialiased bg-slate-50 text-slate-900 font-sans">
+    <html lang="en" className={cn(geist.variable, spaceGrotesk.variable, geistMono.variable, serifFont.variable)}>
+      <body className="min-h-screen antialiased bg-background text-foreground font-sans">
         {children}
       </body>
     </html>

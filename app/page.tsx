@@ -234,7 +234,7 @@ export default function DemoPage() {
             <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
             Model Context Protocol Demo
           </div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
+          <h1 className="font-heading text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
             One MCP tool call. <span className="text-emerald-600 dark:text-emerald-400">Two radical renders.</span>
           </h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
@@ -247,7 +247,7 @@ export default function DemoPage() {
           <CardHeader className="py-3.5 px-5 sm:px-6 border-b border-border/40 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <IconSparkles className="w-4 h-4 text-emerald-600" />
-              <CardTitle className="text-sm font-bold text-foreground">
+              <CardTitle className="font-heading text-sm font-bold text-foreground">
                 Query & MCP Tool Execution
               </CardTitle>
             </div>
@@ -432,7 +432,7 @@ export default function DemoPage() {
           <Card className="shadow-md border-border/80 bg-card overflow-hidden">
             <div className="py-4 px-6 border-b border-border/40 bg-muted/15 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h2 className="text-base font-bold text-foreground tracking-tight">
+                <h2 className="font-heading text-base font-bold text-foreground tracking-tight">
                   Dual Native Surface Renders
                 </h2>
                 <p className="text-xs text-muted-foreground">
