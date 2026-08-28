@@ -478,7 +478,133 @@ export default function DemoPage() {
 
         {/* ── CARD 4: Live Inspectors & Technical Architecture ── */}
         <div className="space-y-4">
-          {/* Panel 1: Technical Architecture & Protocol Pipeline */}
+          {/* Panel 1: Edit & Live Re-render */}
+          {insight && !loading && (
+            <Collapsible open={showEditPanel} onOpenChange={setShowEditPanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
+              <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
+                <div className="flex items-center gap-2.5">
+                  <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30 gap-1">
+                    <IconCode className="w-3 h-3" />
+                    EDIT
+                  </Badge>
+                  <span className="text-sm font-semibold text-foreground">
+                    Edit payload & re-render both surfaces
+                  </span>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    — proof that one object drives both renders
+                  </span>
+                </div>
+                <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showEditPanel ? "rotate-180" : ""}`} />
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-3 pt-3 bg-muted/5">
+                <p className="text-xs text-muted-foreground">
+                  Edit any field in the JSON below and click <strong>Apply & Re-render</strong> to see both surfaces update simultaneously.
+                </p>
+                <Textarea
+                  value={editedJson}
+                  onChange={(e) => {
+                    setEditedJson(e.target.value);
+                    setJsonError(null);
+                  }}
+                  rows={12}
+                  spellCheck={false}
+                  className="w-full font-mono text-xs text-emerald-400 bg-slate-950 rounded-lg p-3.5 border-slate-800 leading-relaxed focus-visible:ring-violet-500"
+                />
+                {jsonError && (
+                  <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
+                    <IconAlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {jsonError}
+                  </p>
+                )}
+                <div className="flex items-center gap-2.5">
+                  <Button
+                    size="sm"
+                    onClick={handleApplyEdit}
+                    className="bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold cursor-pointer"
+                  >
+                    Apply & Re-render
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setEditedJson(JSON.stringify(insight, null, 2));
+                      setJsonError(null);
+                    }}
+                    className="text-xs font-medium cursor-pointer"
+                  >
+                    Reset
+                  </Button>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {/* Panel 2: MCP Wire Protocol */}
+          {insight && !loading && (
+            <Collapsible open={showWirePanel} onOpenChange={setShowWirePanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
+              <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
+                <div className="flex items-center gap-2.5">
+                  <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 gap-1">
+                    <IconTerminal2 className="w-3 h-3" />
+                    MCP
+                  </Badge>
+                  <span className="text-sm font-semibold text-foreground">
+                    View raw MCP wire protocol
+                  </span>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    — JSON-RPC 2.0 messages over Streamable HTTP transport
+                  </span>
+                </div>
+                <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showWirePanel ? "rotate-180" : ""}`} />
+              </CollapsibleTrigger>
+
+              <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-4 pt-3 bg-muted/5">
+                {mcpWire && (
+                  <>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="font-mono text-[11px]">
+                        {mcpWire.endpoint}
+                      </Badge>
+                      <span>— Streamable HTTP Transport</span>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                      {/* Request */}
+                      <div className="space-y-1.5">
+                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
+                          Client ➔ Server (Request)
+                        </span>
+                        <pre className="bg-slate-950 rounded-lg p-3.5 text-[11px] font-mono text-blue-300 overflow-x-auto leading-relaxed border border-slate-800">
+                          {JSON.stringify(mcpWire.request, null, 2)}
+                        </pre>
+                      </div>
+
+                      {/* Response */}
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                            Server ➔ Client (Response)
+                          </span>
+                          {isModified && (
+                            <Badge variant="outline" className="text-[10px] font-mono border-violet-500/30 text-violet-700 dark:text-violet-300 bg-violet-50/50">
+                              Live Modified
+                            </Badge>
+                          )}
+                        </div>
+                        <pre className="bg-slate-950 rounded-lg p-3.5 text-[11px] font-mono text-emerald-300 overflow-x-auto leading-relaxed border border-slate-800">
+                          {JSON.stringify(mcpWire.response, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+
+          {/* Panel 3: Technical Architecture & Protocol Pipeline (SPECS) */}
           <Collapsible open={showArchPanel} onOpenChange={setShowArchPanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
             <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
               <div className="flex items-center gap-2.5">
@@ -611,132 +737,6 @@ export default function DemoPage() {
               </div>
             </CollapsibleContent>
           </Collapsible>
-
-          {/* Panel 2: Edit & Live Re-render */}
-          {insight && !loading && (
-            <Collapsible open={showEditPanel} onOpenChange={setShowEditPanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
-              <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
-                <div className="flex items-center gap-2.5">
-                  <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30 gap-1">
-                    <IconCode className="w-3 h-3" />
-                    EDIT
-                  </Badge>
-                  <span className="text-sm font-semibold text-foreground">
-                    Edit payload & re-render both surfaces
-                  </span>
-                  <span className="text-xs text-muted-foreground hidden sm:inline">
-                    — proof that one object drives both renders
-                  </span>
-                </div>
-                <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showEditPanel ? "rotate-180" : ""}`} />
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-3 pt-3 bg-muted/5">
-                <p className="text-xs text-muted-foreground">
-                  Edit any field in the JSON below and click <strong>Apply & Re-render</strong> to see both surfaces update simultaneously.
-                </p>
-                <Textarea
-                  value={editedJson}
-                  onChange={(e) => {
-                    setEditedJson(e.target.value);
-                    setJsonError(null);
-                  }}
-                  rows={12}
-                  spellCheck={false}
-                  className="w-full font-mono text-xs text-emerald-400 bg-slate-950 rounded-lg p-3.5 border-slate-800 leading-relaxed focus-visible:ring-violet-500"
-                />
-                {jsonError && (
-                  <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
-                    <IconAlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    {jsonError}
-                  </p>
-                )}
-                <div className="flex items-center gap-2.5">
-                  <Button
-                    size="sm"
-                    onClick={handleApplyEdit}
-                    className="bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold cursor-pointer"
-                  >
-                    Apply & Re-render
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setEditedJson(JSON.stringify(insight, null, 2));
-                      setJsonError(null);
-                    }}
-                    className="text-xs font-medium cursor-pointer"
-                  >
-                    Reset
-                  </Button>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          )}
-
-          {/* Panel 3: MCP Wire Protocol */}
-          {insight && !loading && (
-            <Collapsible open={showWirePanel} onOpenChange={setShowWirePanel} className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden">
-              <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
-                <div className="flex items-center gap-2.5">
-                  <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 gap-1">
-                    <IconTerminal2 className="w-3 h-3" />
-                    MCP
-                  </Badge>
-                  <span className="text-sm font-semibold text-foreground">
-                    View raw MCP wire protocol
-                  </span>
-                  <span className="text-xs text-muted-foreground hidden sm:inline">
-                    — JSON-RPC 2.0 messages over Streamable HTTP transport
-                  </span>
-                </div>
-                <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showWirePanel ? "rotate-180" : ""}`} />
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-4 pt-3 bg-muted/5">
-                {mcpWire && (
-                  <>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Badge variant="outline" className="font-mono text-[11px]">
-                        {mcpWire.endpoint}
-                      </Badge>
-                      <span>— Streamable HTTP Transport</span>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                      {/* Request */}
-                      <div className="space-y-1.5">
-                        <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                          Client ➔ Server (Request)
-                        </span>
-                        <pre className="bg-slate-950 rounded-lg p-3.5 text-[11px] font-mono text-blue-300 overflow-x-auto leading-relaxed border border-slate-800">
-                          {JSON.stringify(mcpWire.request, null, 2)}
-                        </pre>
-                      </div>
-
-                      {/* Response */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                            Server ➔ Client (Response)
-                          </span>
-                          {isModified && (
-                            <Badge variant="outline" className="text-[10px] font-mono border-violet-500/30 text-violet-700 dark:text-violet-300 bg-violet-50/50">
-                              Live Modified
-                            </Badge>
-                          )}
-                        </div>
-                        <pre className="bg-slate-950 rounded-lg p-3.5 text-[11px] font-mono text-emerald-300 overflow-x-auto leading-relaxed border border-slate-800">
-                          {JSON.stringify(mcpWire.response, null, 2)}
-                        </pre>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </CollapsibleContent>
-            </Collapsible>
-          )}
         </div>
       </div>
     </div>
