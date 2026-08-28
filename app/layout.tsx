@@ -30,7 +30,11 @@ export const metadata: Metadata = {
   title: "MCP Multi-Surface Demo",
   description: "One MCP tool call. Two native renders.",
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.png",
+    apple: "/favicon.png",
   },
 };
 
