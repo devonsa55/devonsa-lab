@@ -453,7 +453,7 @@ export default function DemoPage() {
                       Surface A: Editorial Dispatch
                     </span>
                     <Badge variant="outline" className="text-[10px] font-mono border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
-                      100% Serif • Grayscale
+                      100% Serif • Warm Editorial
                     </Badge>
                   </div>
                   <MerchantCenterCard data={insight} />
