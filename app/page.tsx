@@ -42,36 +42,36 @@ interface PresetQuery {
 
 const PRESETS: PresetQuery[] = [
   {
-    label: "📈 Price Trend Wave",
+    label: "📈 7-Day Price Trajectory",
     category: "Consumer Electronics",
     focusArea: "pricing",
     visType: "trend_line",
     timeHorizon: "7d",
-    query: "Forecast 7-day competitor price undercut trajectory and regional margin volatility.",
+    query: "Forecast 7-day competitor price undercut trajectory and regional margin deflation across 48 key search terms.",
   },
   {
-    label: "📊 Competitor Benchmark",
+    label: "📊 4-Brand Price Benchmark",
     category: "Footwear & Apparel",
     focusArea: "pricing",
     visType: "bar_comparison",
     timeHorizon: "30d",
-    query: "Compare our store pricing against top 4 rival brands across high-demand sneaker categories.",
+    query: "Compare our store pricing against top 4 rival brands (RetailDirect, Apex Global, PrimeVault) across high-velocity sneakers.",
   },
   {
-    label: "🎯 Stockout Hazard Gauge",
+    label: "🎯 Warehouse Buffer Gauge",
     category: "Warehouse Logistics",
     focusArea: "inventory",
     visType: "progress_gauge",
     timeHorizon: "14d",
-    query: "Evaluate warehouse stock buffer capacity and critical replenishment thresholds before peak season.",
+    query: "Evaluate warehouse safety stock buffer capacity and critical replenishment hazard status ahead of peak demand.",
   },
   {
-    label: "🥧 Channel Share Split",
+    label: "🥧 Omnichannel GMV Split",
     category: "Specialty Coffee",
     focusArea: "trend",
     visType: "breakdown_distribution",
     timeHorizon: "90d",
-    query: "Break down revenue contribution and acquisition share across Mobile App, Direct Web, and Marketplaces.",
+    query: "Break down revenue contribution and customer acquisition share across Mobile App, Desktop Web, and Third-Party Marketplaces.",
   },
 ];
 

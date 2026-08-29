@@ -5,7 +5,7 @@ import { GoogleGenAI } from "@google/genai";
 const CategoryDataPointSchema = z.object({
   label: z.string().describe("Category or entity label"),
   value: z.number().describe("Numerical value"),
-  formattedValue: z.string().optional().describe("Display formatted string e.g. '$14.20' or '820 units'"),
+  formattedValue: z.string().optional().describe("Display formatted string e.g. '$85.00' or '820 units'"),
   highlight: z.boolean().optional().describe("Whether this item should be highlighted/featured"),
 });
 
@@ -66,13 +66,13 @@ function resolveVisualizationType(params: GenerateParams): "trend_line" | "bar_c
     return params.visualization_type;
   }
   const q = (params.query || "").toLowerCase();
-  if (q.includes("compare") || q.includes("competitor") || q.includes("vs") || q.includes("ranking") || q.includes("brands")) {
+  if (q.includes("compare") || q.includes("competitor") || q.includes("vs") || q.includes("ranking") || q.includes("benchmark") || q.includes("brands")) {
     return "bar_comparison";
   }
-  if (q.includes("capacity") || q.includes("gauge") || q.includes("threshold") || q.includes("stockout") || q.includes("quota") || q.includes("limit")) {
+  if (q.includes("capacity") || q.includes("gauge") || q.includes("threshold") || q.includes("stockout") || q.includes("buffer") || q.includes("quota") || q.includes("depletion")) {
     return "progress_gauge";
   }
-  if (q.includes("share") || q.includes("distribution") || q.includes("breakdown") || q.includes("segment") || q.includes("split") || q.includes("cohort")) {
+  if (q.includes("share") || q.includes("distribution") || q.includes("breakdown") || q.includes("segment") || q.includes("split") || q.includes("channel")) {
     return "breakdown_distribution";
   }
   if (params.focus_area === "inventory") return "progress_gauge";
@@ -89,24 +89,31 @@ async function generateMerchantInsight(params: GenerateParams): Promise<Merchant
     const ai = new GoogleGenAI({ apiKey });
 
     const systemInstruction = `You are a specialized retail and merchant analytics intelligence engine.
-Given merchant parameters, synthesize a high-impact, realistic insight and select the requested visualization type ("${targetVisType}").
+Synthesize a realistic, highly specific merchant insight and craft the exact requested visualization widget ("${targetVisType}").
+
+VISUALIZATION TYPE SPECIFICATIONS:
+- When target is "trend_line": Provide a chronological 5-8 point numerical series showing price or demand changes over time.
+- When target is "bar_comparison": Provide 3-5 ranked entities in "categories" (with labels, numeric values, formatted strings like "$85", and set highlight: true on "Your Store").
+- When target is "progress_gauge": Provide "gauge" with "current" number (e.g. 24), "target" number (e.g. 100), "unit" (e.g. "%" or "days"), and "status" ("safe", "warning", or "critical").
+- When target is "breakdown_distribution": Provide 3-4 segments in "distribution" whose percentages sum to 100 (e.g. Mobile, Web, Marketplace).
+
 Output ONLY a single valid JSON object matching this structure:
 {
-  "headline": "Short high-impact headline (max 8-10 words)",
+  "headline": "Short high-impact headline tailored to the widget (max 8-10 words)",
   "detail": "Precise detail sentence explaining observation or root cause (max 20 words)",
   "metric": {
-    "label": "Metric name",
-    "value": "Formatted metric value (e.g. 78%, $24.50, +31.4%)",
+    "label": "Metric name specific to this analysis",
+    "value": "Formatted metric value (e.g. 22%, -$18.50, +34.2%, 54.0%)",
     "trend": "up" | "down" | "flat"
   },
   "chart": [5 to 8 numbers],
   "visualization": {
     "type": "${targetVisType}",
-    "title": "Short title for widget (e.g. '7-Day Price Trajectory' or 'Brand Price Index' or 'Depletion Level' or 'Channel Share')",
-    "series": [5 to 8 numbers] (if type === "trend_line"),
-    "categories": [{"label": "Name", "value": number, "formattedValue": "$12.00", "highlight": true/false}] (if type === "bar_comparison", 3-5 items),
-    "gauge": {"current": 72, "target": 100, "unit": "%", "status": "safe" | "warning" | "critical"} (if type === "progress_gauge"),
-    "distribution": [{"label": "Segment", "percentage": 45}] (if type === "breakdown_distribution", 3-4 segments summing to 100)
+    "title": "Title for widget (e.g. '7-Day Price Trajectory' or 'Brand Price Benchmark' or 'Warehouse Safety Buffer' or 'Channel GMV Breakdown')",
+    "series": [numbers] (if trend_line),
+    "categories": [{"label": "Name", "value": number, "formattedValue": "$XX.XX", "highlight": boolean}] (if bar_comparison),
+    "gauge": {"current": number, "target": number, "unit": "%", "status": "safe"|"warning"|"critical"} (if progress_gauge),
+    "distribution": [{"label": "Name", "percentage": number}] (if breakdown_distribution)
   },
   "action": "Short imperative button label (max 4-5 words)"
 }`;
@@ -144,7 +151,6 @@ Output ONLY a single valid JSON object matching this structure:
         const jsonString = jsonMatch ? jsonMatch[0] : rawText;
         const parsed = JSON.parse(jsonString);
 
-        // Ensure series and chart are in sync
         if (!parsed.chart && parsed.visualization?.series) {
           parsed.chart = parsed.visualization.series;
         }
@@ -162,80 +168,80 @@ Output ONLY a single valid JSON object matching this structure:
     }
   }
 
-  // Deterministic fallbacks for each visualization type
+  // Rich distinct fallbacks for each visualization type
   const cat = category || "Catalog Products";
 
   if (targetVisType === "bar_comparison") {
     return {
-      headline: `Competitor Price Benchmark for ${cat}`,
-      detail: `Your median catalog price sits 14.8% below top-tier regional competitors.`,
-      metric: { label: "Price Benchmark Gap", value: "-14.8%", trend: "down" },
-      chart: [85, 92, 98, 104, 112],
+      headline: `Footwear Pricing Benchmark vs. Top 4 Rivals`,
+      detail: `Your store price sits $18.50 below Apex Global while capturing 28% higher search click-through.`,
+      metric: { label: "Median Price Gap", value: "-$18.50", trend: "down" },
+      chart: [85, 98, 104, 114],
       visualization: {
         type: "bar_comparison",
-        title: "Peer Price Comparison",
+        title: "Brand Price Benchmark Index",
         categories: [
-          { label: "Your Store", value: 85, formattedValue: "$85", highlight: true },
-          { label: "RetailCo", value: 98, formattedValue: "$98" },
-          { label: "Apex Global", value: 104, formattedValue: "$104" },
-          { label: "PrimeDirect", value: 112, formattedValue: "$112" },
+          { label: "Your Store", value: 85, formattedValue: "$85.00", highlight: true },
+          { label: "RetailDirect", value: 98, formattedValue: "$98.00" },
+          { label: "Apex Global", value: 104, formattedValue: "$104.00" },
+          { label: "PrimeVault", value: 114.5, formattedValue: "$114.50" },
         ],
       },
-      action: "Adjust Dynamic Margins",
+      action: "Optimize Brand Margins",
     };
   }
 
   if (targetVisType === "progress_gauge") {
     return {
-      headline: `Critical Stockout Threshold in ${cat}`,
-      detail: `Warehouse inventory depleted to 24% capacity with 4 days until replenishment shipment.`,
-      metric: { label: "Stock Reserve Level", value: "24.0%", trend: "down" },
-      chart: [88, 72, 54, 38, 24],
+      headline: `Warehouse Buffer Depletion Warning`,
+      detail: `Inventory reserves reached critical 22% buffer with 5 days until scheduled replenishment arrival.`,
+      metric: { label: "Safety Stock Buffer", value: "22.0%", trend: "down" },
+      chart: [88, 72, 54, 38, 22],
       visualization: {
         type: "progress_gauge",
         title: "Warehouse Buffer Capacity",
         gauge: {
-          current: 24,
+          current: 22,
           target: 100,
           unit: "%",
           status: "critical",
         },
       },
-      action: `Expedite ${cat} Restock`,
+      action: "Expedite Priority Restock",
     };
   }
 
   if (targetVisType === "breakdown_distribution") {
     return {
-      headline: `Customer Channel Share in ${cat}`,
-      detail: `Direct mobile checkout captures 54% of transaction volume, leading organic search.`,
-      metric: { label: "Mobile Share", value: "54.0%", trend: "up" },
-      chart: [40, 44, 48, 51, 54],
+      headline: `Omnichannel Acquisition & Revenue Split`,
+      detail: `Mobile App purchases drive 54% of total GMV, outperforming Desktop Direct by 2.1x.`,
+      metric: { label: "Mobile GMV Share", value: "54.0%", trend: "up" },
+      chart: [54, 28, 18],
       visualization: {
         type: "breakdown_distribution",
-        title: "Sales Channel Distribution",
+        title: "Channel Revenue Contribution",
         distribution: [
           { label: "Mobile App", percentage: 54, colorHint: "primary" },
-          { label: "Web Direct", percentage: 28, colorHint: "secondary" },
-          { label: "Marketplace", percentage: 18, colorHint: "accent" },
+          { label: "Desktop Web", percentage: 28, colorHint: "secondary" },
+          { label: "Marketplaces", percentage: 18, colorHint: "accent" },
         ],
       },
-      action: "Optimize Mobile Funnel",
+      action: "Scale Mobile Ad Budget",
     };
   }
 
   // Default: trend_line
   return {
-    headline: `Surging Search Velocity for ${cat}`,
-    detail: `Regional search interest climbed 34.2% week-over-week across target demographic hubs.`,
-    metric: { label: "Demand Lift", value: "+34.2%", trend: "up" },
-    chart: [110, 125, 140, 168, 195, 230],
+    headline: `7-Day Competitor Price Undercut Trajectory`,
+    detail: `Median competitor catalog pricing dropped 12.4% over 7 days across 48 key search terms.`,
+    metric: { label: "Price Deflation Rate", value: "-12.4%", trend: "down" },
+    chart: [104, 101, 98, 95, 93, 91, 88],
     visualization: {
       type: "trend_line",
-      title: "7-Day Search Velocity",
-      series: [110, 125, 140, 168, 195, 230],
+      title: "7-Day Deflation Trajectory",
+      series: [104, 101, 98, 95, 93, 91, 88],
     },
-    action: "Boost Campaign Bids",
+    action: "Recalibrate Pricing Rules",
   };
 }
 
