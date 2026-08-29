@@ -120,13 +120,19 @@ export default function DemoPage() {
   const wirePanelRef = useRef<HTMLDivElement>(null);
   const archPanelRef = useRef<HTMLDivElement>(null);
 
-  // Smooth Scroll Helper
-  const scrollToCard = (ref: React.RefObject<HTMLDivElement | null>) => {
+  // Silky Smooth Scroll Helper with calculated offset and animation delay
+  const scrollToCard = (ref: React.RefObject<HTMLDivElement | null>, offset = 28) => {
+    if (typeof window === "undefined") return;
     setTimeout(() => {
-      if (ref.current) {
-        ref.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 120);
+      if (!ref.current) return;
+      const elementRect = ref.current.getBoundingClientRect();
+      const targetY = window.pageYOffset + elementRect.top - offset;
+
+      window.scrollTo({
+        top: Math.max(0, targetY),
+        behavior: "smooth",
+      });
+    }, 150);
   };
 
   // Editable JSON state
