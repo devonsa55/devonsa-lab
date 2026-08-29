@@ -1,5 +1,5 @@
 import React from "react";
-import type { MerchantInsight } from "@/types/insight";
+import type { MerchantInsight, VisualizationData } from "@/types/insight";
 import { IconArrowUpRight, IconTrendingUp, IconTrendingDown, IconMinus } from "@tabler/icons-react";
 
 export interface AdsBannerProps {
@@ -10,6 +10,8 @@ export interface AdsBannerProps {
 
 export function AdsBanner({ data, className = "", onAction }: AdsBannerProps) {
   if (!data) return null;
+
+  const vis = data.visualization;
 
   return (
     <div
@@ -27,24 +29,41 @@ export function AdsBanner({ data, className = "", onAction }: AdsBannerProps) {
       </div>
 
       {/* Vibrant Square Metric Box */}
-      <div className="rounded-none border-2 border-black dark:border-white bg-yellow-300 text-black p-4 flex items-end justify-between gap-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-        <div>
-          <span className="text-[10px] font-black uppercase tracking-widest text-black/70 block">
-            {data.metric?.label}
-          </span>
-          <div className="flex items-center gap-2 mt-1">
-            <span className="text-3xl font-black font-mono tracking-tight text-black">
-              {data.metric?.value}
+      <div className="rounded-none border-2 border-black dark:border-white bg-yellow-300 text-black p-4 space-y-4 shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        {/* Metric Header Row */}
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-black uppercase tracking-widest text-black/70 block">
+              {data.metric?.label}
             </span>
-            <SquareTrendBadge trend={data.metric?.trend} />
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-3xl font-black font-mono tracking-tight text-black">
+                {data.metric?.value}
+              </span>
+              <SquareTrendBadge trend={data.metric?.trend} />
+            </div>
           </div>
+
+          {/* Inline Square Equalizer for trend_line or default */}
+          {(!vis || vis.type === "trend_line") && (
+            <div className="flex flex-col items-end gap-1">
+              <span className="text-[9px] font-black uppercase tracking-wider text-black/60">Metric Wave</span>
+              <SquareBarChart chart={vis?.series || data.chart} />
+            </div>
+          )}
         </div>
 
-        {/* Square Geometric Bar Equalizer */}
-        <div className="flex flex-col items-end gap-1">
-          <span className="text-[9px] font-black uppercase tracking-wider text-black/60">Metric Curve</span>
-          <SquareBarChart chart={data.chart} />
-        </div>
+        {/* Polymorphic Body Visualizers for non-trendline types */}
+        {vis && vis.type !== "trend_line" && (
+          <div className="pt-3 border-t-2 border-black/20">
+            {vis.title && (
+              <span className="text-[9px] font-black uppercase tracking-wider text-black/80 block mb-2">
+                {vis.title}
+              </span>
+            )}
+            <ConstructivistVisualizer visualization={vis} />
+          </div>
+        )}
       </div>
 
       {/* Sharp Square Button with Hard Shadow */}
@@ -58,6 +77,113 @@ export function AdsBanner({ data, className = "", onAction }: AdsBannerProps) {
       </button>
     </div>
   );
+}
+
+function ConstructivistVisualizer({ visualization }: { visualization: VisualizationData }) {
+  if (visualization.type === "bar_comparison" && visualization.categories?.length) {
+    const maxVal = Math.max(...visualization.categories.map((c) => c.value), 1);
+
+    return (
+      <div className="space-y-2">
+        {visualization.categories.map((cat, idx) => {
+          const pct = Math.min(100, Math.round((cat.value / maxVal) * 100));
+          return (
+            <div key={idx} className="space-y-0.5">
+              <div className="flex justify-between text-[11px] font-mono font-black">
+                <span className="uppercase text-black">{cat.label}</span>
+                <span className={cat.highlight ? "bg-black text-yellow-300 px-1" : "text-black/80"}>
+                  {cat.formattedValue || cat.value}
+                </span>
+              </div>
+              <div className="h-3 w-full bg-black/15 border border-black/30 rounded-none overflow-hidden p-0.5">
+                <div
+                  style={{ width: `${pct}%` }}
+                  className={`h-full rounded-none transition-all duration-200 ${
+                    cat.highlight ? "bg-black" : "bg-blue-600"
+                  }`}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (visualization.type === "progress_gauge" && visualization.gauge) {
+    const { current, target, unit = "%", status = "safe" } = visualization.gauge;
+    const pct = Math.min(100, Math.max(0, Math.round((current / (target || 100)) * 100)));
+
+    const statusStyle =
+      status === "critical"
+        ? "bg-rose-600 text-white"
+        : status === "warning"
+        ? "bg-amber-600 text-white"
+        : "bg-emerald-600 text-white";
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-[11px] font-mono font-black">
+          <span className="uppercase text-black">
+            LEVEL: {current}{unit} / {target}{unit}
+          </span>
+          <span className={`px-1.5 py-0.5 text-[10px] uppercase ${statusStyle}`}>
+            {status}
+          </span>
+        </div>
+        <div className="h-4 w-full bg-black/20 border-2 border-black rounded-none p-0.5">
+          <div
+            style={{ width: `${pct}%` }}
+            className={`h-full rounded-none transition-all duration-300 ${
+              status === "critical" ? "bg-rose-600" : status === "warning" ? "bg-amber-500" : "bg-black"
+            }`}
+          />
+        </div>
+        <div className="flex justify-between text-[9px] font-mono font-bold text-black/70">
+          <span>0{unit}</span>
+          <span>THRESHOLD: {target}{unit}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (visualization.type === "breakdown_distribution" && visualization.distribution?.length) {
+    const blockColors = ["bg-black", "bg-blue-600", "bg-rose-600", "bg-emerald-600"];
+
+    return (
+      <div className="space-y-2.5">
+        <div className="h-4 w-full flex border-2 border-black rounded-none bg-black/20 overflow-hidden">
+          {visualization.distribution.map((seg, idx) => (
+            <div
+              key={idx}
+              style={{ width: `${seg.percentage}%` }}
+              className={`h-full ${blockColors[idx % blockColors.length]} border-r border-black last:border-r-0`}
+              title={`${seg.label}: ${seg.percentage}%`}
+            />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-1.5 text-[10px] font-mono font-black">
+          {visualization.distribution.map((seg, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 text-black">
+              <span className={`w-2.5 h-2.5 ${blockColors[idx % blockColors.length]} border border-black shrink-0`} />
+              <span className="truncate uppercase">{seg.label}: {seg.percentage}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Graceful fallback to square equalizer if series exists
+  if (visualization.series?.length) {
+    return (
+      <div className="w-full flex justify-end pt-1">
+        <SquareBarChart chart={visualization.series} />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function SquareTrendBadge({ trend }: { trend?: "up" | "down" | "flat" }) {

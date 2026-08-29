@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import type { MerchantInsight } from "@/types/insight";
+import type { MerchantInsight, VisualizationType } from "@/types/insight";
 import { MerchantCenterCard } from "@/components/MerchantCenterCard";
 import { AdsBanner } from "@/components/AdsBanner";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
@@ -23,49 +22,65 @@ import {
   IconRobot,
   IconLayersLinked,
   IconCheck,
-  IconBolt,
   IconHierarchy2,
   IconArrowRight,
   IconArrowDown,
+  IconChartLine,
+  IconChartBar,
+  IconGauge,
+  IconChartPie,
 } from "@tabler/icons-react";
 
 interface PresetQuery {
   label: string;
   category: string;
   focusArea: "inventory" | "pricing" | "trend";
+  visType: VisualizationType;
   timeHorizon: string;
   query: string;
 }
 
 const PRESETS: PresetQuery[] = [
   {
-    label: "🏷️ Competitor Price War",
+    label: "📈 Price Trend Wave",
     category: "Consumer Electronics",
     focusArea: "pricing",
+    visType: "trend_line",
     timeHorizon: "7d",
-    query: "Analyze competitor price undercuts across Consumer Electronics over the last 7 days and calculate margin risk.",
+    query: "Forecast 7-day competitor price undercut trajectory and regional margin volatility.",
   },
   {
-    label: "📦 Critical Stockout Risk",
+    label: "📊 Competitor Benchmark",
     category: "Footwear & Apparel",
+    focusArea: "pricing",
+    visType: "bar_comparison",
+    timeHorizon: "30d",
+    query: "Compare our store pricing against top 4 rival brands across high-demand sneaker categories.",
+  },
+  {
+    label: "🎯 Stockout Hazard Gauge",
+    category: "Warehouse Logistics",
     focusArea: "inventory",
-    timeHorizon: "30d",
-    query: "Identify critical stockout risks for high-velocity Footwear & Apparel items over the last 30 days.",
+    visType: "progress_gauge",
+    timeHorizon: "14d",
+    query: "Evaluate warehouse stock buffer capacity and critical replenishment thresholds before peak season.",
   },
   {
-    label: "🔥 Viral Demand Surge",
-    category: "Beauty & Cosmetics",
-    focusArea: "trend",
-    timeHorizon: "30d",
-    query: "Forecast viral search demand explosion and query volume acceleration for Beauty & Cosmetics over the last 30 days.",
-  },
-  {
-    label: "☕ Category Growth Wave",
+    label: "🥧 Channel Share Split",
     category: "Specialty Coffee",
     focusArea: "trend",
+    visType: "breakdown_distribution",
     timeHorizon: "90d",
-    query: "Evaluate regional search growth trends and customer acquisition opportunity for Specialty Coffee over the last 90 days.",
+    query: "Break down revenue contribution and acquisition share across Mobile App, Direct Web, and Marketplaces.",
   },
+];
+
+const VIS_OPTIONS: Array<{ value: "auto" | VisualizationType; label: string; icon: typeof IconChartLine }> = [
+  { value: "auto", label: "Auto (Inferred)", icon: IconSparkles },
+  { value: "trend_line", label: "Trend Line", icon: IconChartLine },
+  { value: "bar_comparison", label: "Ranked Bars", icon: IconChartBar },
+  { value: "progress_gauge", label: "Progress Gauge", icon: IconGauge },
+  { value: "breakdown_distribution", label: "Segment Breakdown", icon: IconChartPie },
 ];
 
 interface McpWire {
@@ -77,6 +92,7 @@ interface McpWire {
 export default function DemoPage() {
   const [selectedPresetLabel, setSelectedPresetLabel] = useState<string | null>(PRESETS[0].label);
   const [queryMessage, setQueryMessage] = useState(PRESETS[0].query);
+  const [selectedVisType, setSelectedVisType] = useState<"auto" | VisualizationType>("auto");
 
   // Active parameter metadata attached to the prompt
   const [activeCategory, setActiveCategory] = useState(PRESETS[0].category);
@@ -103,6 +119,7 @@ export default function DemoPage() {
   const executeMcpTool = async (params: {
     category: string;
     focus_area: "inventory" | "pricing" | "trend";
+    visualization_type?: "auto" | VisualizationType;
     time_horizon: string;
     query: string;
   }) => {
@@ -117,6 +134,7 @@ export default function DemoPage() {
       merchant_id: "merchant_8492",
       category: params.category,
       focus_area: params.focus_area,
+      visualization_type: params.visualization_type || "auto",
       time_horizon: params.time_horizon,
       query: params.query,
       scenario: params.query,
@@ -154,10 +172,12 @@ export default function DemoPage() {
     setActiveCategory(preset.category);
     setActiveFocusArea(preset.focusArea);
     setActiveTimeHorizon(preset.timeHorizon);
+    setSelectedVisType(preset.visType);
 
     executeMcpTool({
       category: preset.category,
       focus_area: preset.focusArea,
+      visualization_type: preset.visType,
       time_horizon: preset.timeHorizon,
       query: preset.query,
     });
@@ -169,17 +189,18 @@ export default function DemoPage() {
 
     let focus: "inventory" | "pricing" | "trend" = activeFocusArea;
     const lower = queryMessage.toLowerCase();
-    if (lower.includes("stock") || lower.includes("inventory") || lower.includes("supply")) {
+    if (lower.includes("stock") || lower.includes("inventory") || lower.includes("supply") || lower.includes("capacity")) {
       focus = "inventory";
-    } else if (lower.includes("price") || lower.includes("discount") || lower.includes("margin")) {
+    } else if (lower.includes("price") || lower.includes("discount") || lower.includes("margin") || lower.includes("competitor")) {
       focus = "pricing";
-    } else if (lower.includes("trend") || lower.includes("demand") || lower.includes("search")) {
+    } else if (lower.includes("trend") || lower.includes("demand") || lower.includes("search") || lower.includes("share")) {
       focus = "trend";
     }
 
     executeMcpTool({
       category: activeCategory,
       focus_area: focus,
+      visualization_type: selectedVisType,
       time_horizon: activeTimeHorizon,
       query: queryMessage.trim(),
     });
@@ -193,10 +214,9 @@ export default function DemoPage() {
         typeof parsed.headline !== "string" ||
         typeof parsed.detail !== "string" ||
         typeof parsed.action !== "string" ||
-        !parsed.metric ||
-        !Array.isArray(parsed.chart)
+        !parsed.metric
       ) {
-        setJsonError("JSON must include: headline, detail, metric {label, value, trend}, chart[], action");
+        setJsonError("JSON must include at least: headline, detail, metric {label, value, trend}, action");
         return;
       }
       if (!["up", "down", "flat"].includes(parsed.metric.trend)) {
@@ -225,6 +245,8 @@ export default function DemoPage() {
     }
   };
 
+  const currentVisType = insight?.visualization?.type || (insight?.chart ? "trend_line" : "trend_line");
+
   return (
     <div className="min-h-screen bg-background text-foreground py-10 px-4 sm:px-6 lg:px-8">
       <div className="max-w-5xl mx-auto space-y-8">
@@ -238,7 +260,7 @@ export default function DemoPage() {
             One MCP tool call. <span className="text-emerald-600 dark:text-emerald-400">Two radical renders.</span>
           </h1>
           <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            A single structured JSON payload generated by an MCP server tool, rendered simultaneously into two opposing design philosophies.
+            A single structured JSON payload with polymorphic visual widgets, rendered simultaneously into two opposing design philosophies.
           </p>
         </header>
 
@@ -256,13 +278,18 @@ export default function DemoPage() {
             </span>
           </CardHeader>
 
-          <CardContent className="p-5 sm:p-6 space-y-4">
-            {/* 1-Click Preset Chips */}
+          <CardContent className="p-5 sm:p-6 space-y-5">
+            {/* 1-Click Preset Chips with Multiple Visualization Types */}
             <div className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
-                Quick Presets (Click to Execute):
-              </span>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                  Quick Visualization Presets (Click to Execute):
+                </span>
+                <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">
+                  4 Distinct Visual Widget Types
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 {PRESETS.map((preset) => {
                   const isSelected = selectedPresetLabel === preset.label;
                   return (
@@ -271,13 +298,49 @@ export default function DemoPage() {
                       type="button"
                       disabled={loading}
                       onClick={() => handleSelectPreset(preset)}
-                      className={`text-xs font-medium px-3.5 py-2 rounded-xl border transition-all duration-150 flex items-center gap-2 cursor-pointer ${
+                      className={`text-xs font-medium p-3 rounded-xl border text-left transition-all duration-150 flex flex-col justify-between gap-1.5 cursor-pointer ${
                         isSelected
                           ? "bg-emerald-600 text-white border-emerald-600 shadow-sm scale-[1.02]"
                           : "bg-muted/40 hover:bg-muted text-foreground border-border/80 hover:border-border"
                       } disabled:opacity-50`}
                     >
-                      <span>{preset.label}</span>
+                      <span className="font-semibold">{preset.label}</span>
+                      <span className={`text-[10px] font-mono ${isSelected ? "text-emerald-100" : "text-muted-foreground"}`}>
+                        Widget: {preset.visType.replace("_", " ")}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Target Visualization Override Selector */}
+            <div className="space-y-2 pt-2 border-t border-border/40">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                  Requested Visualization Widget:
+                </span>
+                <span className="text-[11px] text-muted-foreground">
+                  Surface adapts or falls back gracefully
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {VIS_OPTIONS.map((opt) => {
+                  const Icon = opt.icon;
+                  const isSelected = selectedVisType === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setSelectedVisType(opt.value)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary shadow-2xs"
+                          : "bg-muted/30 hover:bg-muted/60 text-muted-foreground border-border/60"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{opt.label}</span>
                     </button>
                   );
                 })}
@@ -294,7 +357,7 @@ export default function DemoPage() {
                     setSelectedPresetLabel(null);
                   }}
                   disabled={loading}
-                  placeholder="Or write any custom merchant query (e.g., 'Competitor undercut sneaker pricing by 20%')..."
+                  placeholder="Or enter any custom query (e.g., 'Compare warehouse safety buffers against supplier quotas')..."
                   className="bg-muted/20 text-xs text-foreground font-medium h-10 flex-1"
                   required
                 />
@@ -353,6 +416,9 @@ export default function DemoPage() {
                     <span className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded">
                       focus_area: &quot;{String(lastExecutedArgs.focus_area)}&quot;
                     </span>
+                    <span className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded">
+                      vis_widget: &quot;{String(lastExecutedArgs.visualization_type)}&quot;
+                    </span>
                     <span className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded">
                       time_horizon: &quot;{String(lastExecutedArgs.time_horizon)}&quot;
                     </span>
@@ -373,14 +439,14 @@ export default function DemoPage() {
                       <>
                         <IconLoader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
                         <span>
-                          Agent calling MCP Tool: <code>get_merchant_insight({String(lastExecutedArgs.focus_area)})</code>…
+                          Agent calling MCP Tool: <code>get_merchant_insight({String(lastExecutedArgs.visualization_type)})</code>…
                         </span>
                       </>
                     ) : (
                       <>
                         <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
                         <span>
-                          MCP Tool executed successfully: <code>get_merchant_insight({String(lastExecutedArgs.focus_area)})</code>
+                          MCP Tool synthesized widget: <code>{currentVisType}</code>
                         </span>
                       </>
                     )}
@@ -389,8 +455,8 @@ export default function DemoPage() {
                   {/* Loading Skeleton */}
                   {loading && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse pt-1">
-                      <div className="rounded-xl border border-zinc-200 p-6 space-y-4 bg-muted/40 h-48" />
-                      <div className="rounded-none border-2 border-blue-300 p-6 space-y-4 bg-blue-50/30 h-48" />
+                      <div className="rounded-xl border border-zinc-200 p-6 space-y-4 bg-muted/40 h-52" />
+                      <div className="rounded-none border-2 border-blue-300 p-6 space-y-4 bg-blue-50/30 h-52" />
                     </div>
                   )}
                 </div>
@@ -421,7 +487,7 @@ export default function DemoPage() {
               </div>
               <p className="text-sm font-bold text-foreground">Click a preset above to execute the MCP tool</p>
               <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Watch how a single prompt triggers the MCP tool to generate structured JSON rendered natively on both opposing surfaces.
+                Watch how the MCP server synthesizes different visual widget formats (trend lines, comparison bars, gauges, distributions) rendered natively across both surfaces.
               </p>
             </CardContent>
           </Card>
@@ -436,17 +502,22 @@ export default function DemoPage() {
                   Dual Native Surface Renders
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  The exact same MCP JSON payload rendered under two radically different design systems.
+                  The exact same polymorphic JSON payload rendered under two radically different design systems.
                 </p>
               </div>
-              <Badge variant="secondary" className="font-mono text-[10px] font-bold self-start sm:self-auto">
-                1 JSON ➔ 2 Native Surfaces
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="font-mono text-[10px] uppercase">
+                  Widget: {currentVisType.replace("_", " ")}
+                </Badge>
+                <Badge variant="secondary" className="font-mono text-[10px] font-bold self-start sm:self-auto">
+                  1 JSON ➔ 2 Native Surfaces
+                </Badge>
+              </div>
             </div>
 
             <CardContent className="p-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                {/* Surface 1: Editorial Serif Grayscale */}
+                {/* Surface 1: Editorial Serif Warm Neutral */}
                 <div className="space-y-2 flex flex-col">
                   <div className="flex items-center justify-between px-1">
                     <span className="text-xs font-serif italic text-zinc-600 dark:text-zinc-400">
@@ -488,10 +559,10 @@ export default function DemoPage() {
                     EDIT
                   </Badge>
                   <span className="text-sm font-semibold text-foreground">
-                    Edit payload & re-render both surfaces
+                    Edit payload & test adaptive visualizers
                   </span>
                   <span className="text-xs text-muted-foreground hidden sm:inline">
-                    — proof that one object drives both renders
+                    — change visualization type or values to see instant multi-surface adaptation
                   </span>
                 </div>
                 <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showEditPanel ? "rotate-180" : ""}`} />
@@ -499,7 +570,7 @@ export default function DemoPage() {
 
               <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-3 pt-3 bg-muted/5">
                 <p className="text-xs text-muted-foreground">
-                  Edit any field in the JSON below and click <strong>Apply & Re-render</strong> to see both surfaces update simultaneously.
+                  Try changing <code>visualization.type</code> to <code>&quot;trend_line&quot;</code>, <code>&quot;bar_comparison&quot;</code>, <code>&quot;progress_gauge&quot;</code>, or <code>&quot;breakdown_distribution&quot;</code> and click <strong>Apply & Re-render</strong>.
                 </p>
                 <Textarea
                   value={editedJson}
@@ -507,7 +578,7 @@ export default function DemoPage() {
                     setEditedJson(e.target.value);
                     setJsonError(null);
                   }}
-                  rows={12}
+                  rows={14}
                   spellCheck={false}
                   className="w-full font-mono text-xs text-emerald-400 bg-slate-950 rounded-lg p-3.5 border-slate-800 leading-relaxed focus-visible:ring-violet-500"
                 />
@@ -616,7 +687,7 @@ export default function DemoPage() {
                   Technical Architecture & Multi-Surface Flow
                 </span>
                 <span className="text-xs text-muted-foreground hidden sm:inline">
-                  — protocol mechanics, transport specification & decoupling
+                  — polymorphic visual contracts & surface capability resolution
                 </span>
               </div>
               <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showArchPanel ? "rotate-180" : ""}`} />
@@ -630,7 +701,7 @@ export default function DemoPage() {
                     End-to-End Execution Flow
                   </span>
                   <span className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-                    1 Canonical JSON ➔ 2 Native Renders
+                    1 Polymorphic JSON ➔ 2 Native Surface Projections
                   </span>
                 </div>
 
@@ -641,9 +712,9 @@ export default function DemoPage() {
                       <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">Step 1</span>
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     </div>
-                    <span className="font-bold text-foreground text-xs block">User Query / Prompt</span>
+                    <span className="font-bold text-foreground text-xs block">User Query & Widget Intent</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Natural language observation & parameters entered in client.
+                      Natural language observation with requested visualization type.
                     </p>
                   </div>
 
@@ -661,7 +732,7 @@ export default function DemoPage() {
                     </div>
                     <span className="font-bold text-foreground text-xs block">MCP Tool Call</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Client invokes <code>tools/call</code> over Streamable HTTP.
+                      Client invokes <code>tools/call</code> over Streamable HTTP transport.
                     </p>
                   </div>
 
@@ -677,9 +748,9 @@ export default function DemoPage() {
                       <span className="text-[10px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400">Step 3</span>
                       <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                     </div>
-                    <span className="font-bold text-foreground text-xs block">Structured Schema</span>
+                    <span className="font-bold text-foreground text-xs block">Polymorphic Schema</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      MCP Server returns typed Zod JSON data contract.
+                      MCP Server synthesizes semantic data (trend, bars, gauge, distribution).
                     </p>
                   </div>
 
@@ -695,9 +766,9 @@ export default function DemoPage() {
                       <span className="text-[10px] font-mono font-bold uppercase text-purple-600 dark:text-purple-400">Step 4</span>
                       <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                     </div>
-                    <span className="font-bold text-foreground text-xs block">Dual Native Render</span>
+                    <span className="font-bold text-foreground text-xs block">Adaptive Surface Render</span>
                     <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Single payload projects into 2 isolated design systems.
+                      Surfaces project data to their local design system or adapt via fallback.
                     </p>
                   </div>
                 </div>
@@ -708,30 +779,30 @@ export default function DemoPage() {
                 <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
                   <span className="font-bold text-foreground flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Decoupled Presentation
+                    Polymorphic Data Contracts
                   </span>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    MCP servers never return hardcoded HTML or vendor-locked CSS. They produce pure data contracts, allowing host clients full layout autonomy.
+                    MCP tools return structured visualization intent rather than pre-rendered pixels or rigid DOM nodes, enabling true cross-platform presentation agility.
                   </p>
                 </div>
 
                 <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
                   <span className="font-bold text-foreground flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    Streamable HTTP Transport
+                    Capability & Fallback Resolution
                   </span>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Operates over stateless HTTP endpoints, supporting serverless cloud deployment, edge caching, and reverse-proxy authentication.
+                    If an edge client or constrained surface lacks support for complex visualizations, it gracefully degrades to native summary representations.
                   </p>
                 </div>
 
                 <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
                   <span className="font-bold text-foreground flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-purple-500" />
-                    Reactive Synchrony
+                    Reactive Multi-Surface Sync
                   </span>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Because both surfaces are bound to the single canonical JSON object, mutations in upstream data update all downstream representations in lockstep.
+                    Upstream schema mutations or visual type switches instantly update both native rendering pipelines in real-time lockstep.
                   </p>
                 </div>
               </div>

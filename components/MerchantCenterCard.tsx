@@ -1,5 +1,5 @@
 import React, { useId } from "react";
-import type { MerchantInsight } from "@/types/insight";
+import type { MerchantInsight, VisualizationData } from "@/types/insight";
 
 export interface MerchantCenterCardProps {
   data: MerchantInsight;
@@ -8,6 +8,7 @@ export interface MerchantCenterCardProps {
 export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
   const gradientId = useId();
   const trend = data.metric?.trend;
+  const vis = data.visualization;
 
   return (
     <div
@@ -24,26 +25,43 @@ export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
         </p>
       </div>
 
-      {/* Metric & Sparkline Box */}
-      <div className="border-t border-b border-[var(--border)] py-4 flex items-end justify-between gap-4">
-        <div>
-          <span className="font-serif text-xs uppercase tracking-widest text-[var(--muted-foreground)] block">
-            {data.metric?.label}
-          </span>
-          <div className="flex items-baseline gap-2.5 mt-1">
-            <span className="font-serif text-3xl font-normal text-[var(--card-foreground)] tracking-tight">
-              {data.metric?.value}
+      {/* Metric & Polymorphic Visualization Container */}
+      <div className="border-t border-b border-[var(--border)] py-4 space-y-4">
+        {/* Metric Header Row */}
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <span className="font-serif text-xs uppercase tracking-widest text-[var(--muted-foreground)] block">
+              {data.metric?.label}
             </span>
-            <span className="font-serif italic text-xs text-[var(--muted-foreground)]">
-              {trend === "up" ? "(Increasing)" : trend === "down" ? "(Decreasing)" : "(Steady)"}
-            </span>
+            <div className="flex items-baseline gap-2.5 mt-1">
+              <span className="font-serif text-3xl font-normal text-[var(--card-foreground)] tracking-tight">
+                {data.metric?.value}
+              </span>
+              <span className="font-serif italic text-xs text-[var(--muted-foreground)]">
+                {trend === "up" ? "(Increasing)" : trend === "down" ? "(Decreasing)" : "(Steady)"}
+              </span>
+            </div>
           </div>
+
+          {/* Inline Sparkline when in trend_line mode or fallback */}
+          {(!vis || vis.type === "trend_line") && (
+            <div className="w-32 h-10 flex items-center justify-end">
+              <EditorialSparkline chart={vis?.series || data.chart} gradientId={gradientId} />
+            </div>
+          )}
         </div>
 
-        {/* Minimalist Sparkline with Chart Token */}
-        <div className="w-32 h-10 flex items-center justify-end">
-          <ThemeSparkline chart={data.chart} gradientId={gradientId} />
-        </div>
+        {/* Polymorphic Body Visualizers for non-trendline types */}
+        {vis && vis.type !== "trend_line" && (
+          <div className="pt-2 border-t border-[var(--border)]/60">
+            {vis.title && (
+              <span className="font-serif text-[11px] uppercase tracking-wider text-[var(--muted-foreground)] block mb-2">
+                {vis.title}
+              </span>
+            )}
+            <EditorialVisualizer visualization={vis} />
+          </div>
+        )}
       </div>
 
       {/* Styled Primary Editorial Button */}
@@ -58,7 +76,119 @@ export function MerchantCenterCard({ data }: MerchantCenterCardProps) {
   );
 }
 
-function ThemeSparkline({ chart, gradientId }: { chart?: number[]; gradientId: string }) {
+function EditorialVisualizer({ visualization }: { visualization: VisualizationData }) {
+  if (visualization.type === "bar_comparison" && visualization.categories?.length) {
+    const maxVal = Math.max(...visualization.categories.map((c) => c.value), 1);
+    return (
+      <div className="space-y-2">
+        {visualization.categories.map((cat, idx) => {
+          const pct = Math.min(100, Math.round((cat.value / maxVal) * 100));
+          return (
+            <div key={idx} className="space-y-0.5">
+              <div className="flex justify-between text-xs font-serif">
+                <span className={cat.highlight ? "font-semibold text-[var(--card-foreground)]" : "text-[var(--muted-foreground)] italic"}>
+                  {cat.label} {cat.highlight && "•"}
+                </span>
+                <span className="font-mono text-[11px] text-[var(--card-foreground)]">
+                  {cat.formattedValue || cat.value}
+                </span>
+              </div>
+              <div className="h-1.5 w-full bg-[var(--border)] rounded-full overflow-hidden">
+                <div
+                  style={{ width: `${pct}%` }}
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    cat.highlight ? "bg-[var(--primary)]" : "bg-[var(--muted-foreground)]/60"
+                  }`}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
+
+  if (visualization.type === "progress_gauge" && visualization.gauge) {
+    const { current, target, unit = "%", status = "safe" } = visualization.gauge;
+    const pct = Math.min(100, Math.max(0, Math.round((current / (target || 100)) * 100)));
+    const statusColor =
+      status === "critical"
+        ? "text-rose-600 dark:text-rose-400"
+        : status === "warning"
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-emerald-600 dark:text-emerald-400";
+
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs font-serif">
+          <span className="text-[var(--muted-foreground)] italic">
+            Capacity Level: <strong className="font-mono not-italic">{current}{unit}</strong>
+          </span>
+          <span className={`text-[11px] uppercase tracking-wider font-semibold ${statusColor}`}>
+            Status: {status}
+          </span>
+        </div>
+        <div className="relative h-2 w-full bg-[var(--border)] rounded-full overflow-hidden">
+          <div
+            style={{ width: `${pct}%` }}
+            className={`h-full rounded-full transition-all duration-300 ${
+              status === "critical" ? "bg-rose-500" : status === "warning" ? "bg-amber-500" : "bg-[var(--primary)]"
+            }`}
+          />
+        </div>
+        <div className="flex justify-between text-[10px] font-mono text-[var(--muted-foreground)]">
+          <span>0{unit}</span>
+          <span>Target: {target}{unit}</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (visualization.type === "breakdown_distribution" && visualization.distribution?.length) {
+    const colors = [
+      "bg-[var(--primary)]",
+      "bg-[var(--chart-1)]",
+      "bg-amber-500",
+      "bg-slate-400",
+    ];
+
+    return (
+      <div className="space-y-2.5">
+        <div className="h-2 w-full flex rounded-full overflow-hidden bg-[var(--border)] gap-0.5">
+          {visualization.distribution.map((seg, idx) => (
+            <div
+              key={idx}
+              style={{ width: `${seg.percentage}%` }}
+              className={`h-full ${colors[idx % colors.length]}`}
+              title={`${seg.label}: ${seg.percentage}%`}
+            />
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-serif">
+          {visualization.distribution.map((seg, idx) => (
+            <div key={idx} className="flex items-center gap-1.5 text-[var(--muted-foreground)]">
+              <span className={`w-2 h-2 rounded-full ${colors[idx % colors.length]}`} />
+              <span>{seg.label}: <strong className="font-mono text-[var(--card-foreground)] not-italic">{seg.percentage}%</strong></span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Graceful fallback to sparkline if any data series exists
+  if (visualization.series?.length) {
+    return (
+      <div className="w-full h-12 flex items-center justify-center">
+        <EditorialSparkline chart={visualization.series} gradientId="fallback-spark" />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function EditorialSparkline({ chart, gradientId }: { chart?: number[]; gradientId: string }) {
   if (!chart || chart.length === 0) return null;
 
   const width = 120;

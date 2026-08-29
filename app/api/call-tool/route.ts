@@ -11,6 +11,9 @@ const CallToolRequestSchema = z.object({
   focus_area: z.enum(["inventory", "pricing", "trend"], {
     message: "focus_area must be one of: 'inventory', 'pricing', 'trend'",
   }),
+  visualization_type: z
+    .enum(["auto", "trend_line", "bar_comparison", "progress_gauge", "breakdown_distribution"])
+    .optional(),
   query: z.string().optional(),
   category: z.string().optional(),
   scenario: z.string().optional(),
