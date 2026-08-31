@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Plus+Jakarta+Sans:wght@700;800&family=IBM+Plex+Mono:wght@400;600&display=swap">
+  <style>
+    @keyframes spin{to{transform:rotate(360deg)}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+    body{margin:0;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+    a{color:inherit}
+  </style>
+</helmet>
+<div style="{{pageStyle}}">
+  <div style="{{wrapStyle}}">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+      <div style="{{badgeStyle}}">
+        <span style="{{dotStyle}}"></span>
+        Model Context Protocol Demo
+      </div>
+      <button style="{{themeBtnStyle}}" onClick="{{toggleDark}}">{{themeBtnLabel}}</button>
+    </div>
+
+    <div>
+      <h1 style="{{h1Style}}">One MCP tool call. <span style="{{accentSpanStyle}}">Two native renders.</span></h1>
+      <p style="{{subtitleStyle}}">A single structured JSON payload, rendered natively into two opposing surface designs — plus a live look at the protocol trace, timing, and failure modes underneath.</p>
+    </div>
+
+    <div style="{{cardStyle}}">
+      <div style="{{sectionLabelStyle}}">Query &amp; Presets</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:14px">
+        <sc-for list="{{presetsView}}" as="p" hint-placeholder-count="4">
+          <button style="{{p.style}}" onClick="{{p.onClick}}">
+            <span style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:0.85rem">{{p.label}}</span>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:0.65rem;color:{{p.subColor}};text-transform:uppercase;letter-spacing:0.04em">{{p.sub}}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="{{dividerStyle}}"></div>
+      <div style="{{fieldLabelStyle}}">Widget override</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;margin-top:10px">
+        <sc-for list="{{visOptionsView}}" as="v" hint-placeholder-count="5">
+          <button style="{{v.style}}" onClick="{{v.onClick}}">{{v.label}}</button>
+        </sc-for>
+      </div>
+
+      <form onSubmit="{{onSubmit}}" style="display:flex;gap:10px;flex-wrap:wrap">
+        <input value="{{query}}" onChange="{{onQueryChange}}" placeholder="Describe any merchant scenario…" style="{{inputStyle}}" />
+        <button type="submit" style="{{primaryBtnStyle}}">Execute MCP</button>
+      </form>
+
+      <div style="{{dividerStyle}}"></div>
+      <div style="{{fieldLabelStyle}}">Simulate a failure</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+        <sc-for list="{{errorChipsView}}" as="e" hint-placeholder-count="3">
+          <button style="{{e.style}}" onClick="{{e.onClick}}">{{e.label}}</button>
+        </sc-for>
+      </div>
+    </div>
+
+    <sc-if value="{{hasRun}}" hint-placeholder-val="{{false}}">
+      <div style="{{cardStyle}}">
+        <div style="{{sectionLabelStyle}}">Protocol Timeline</div>
+        <div style="display:flex;align-items:flex-start;margin-top:22px">
+          <sc-for list="{{timelineStepsView}}" as="s" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;flex:{{s.flexGrow}}">
+              <div style="display:flex;flex-direction:column;align-items:center;gap:8px;min-width:80px">
+                <div style="{{s.circleStyle}}">{{s.mark}}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;text-align:center;color:{{s.textColor}};text-transform:uppercase;letter-spacing:.02em;max-width:96px">{{s.label}}</div>
+              </div>
+              <sc-if value="{{s.showLine}}" hint-placeholder-val="{{false}}">
+                <div style="{{s.lineStyle}}"></div>
+              </sc-if>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{errorMsg}}" hint-placeholder-val="{{null}}">
+          <div style="{{errorBoxStyle}}">
+            <div style="font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Execution failed</div>
+            <div style="font-size:0.85rem;line-height:1.5">{{errorMsg}}</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{statsView}}" hint-placeholder-val="{{null}}">
+          <div style="display:flex;gap:12px;margin-top:22px;flex-wrap:wrap">
+            <sc-for list="{{statsView}}" as="st" hint-placeholder-count="3">
+              <div style="{{st.style}}">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:.05em;color:{{st.labelColor}}">{{st.label}}</div>
+                <div style="font-family:'Plus Jakarta Sans',sans-serif;font-weight:800;font-size:1.15rem;margin-top:4px">{{st.value}}</div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{hasCompleted}}" hint-placeholder-val="{{false}}">
+      <div style="{{cardStyle}}">
+        <div style="{{sectionLabelStyle}}">Dual Native Surface Renders</div>
+        <p style="font-size:0.85rem;color:{{textSecondary}};margin:10px 0 18px;max-width:520px">The same JSON, rendered by two intentionally opposite surfaces — an editorial serif dispatch and a constructivist ad unit.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px">
+          <sc-for list="{{surfacesView}}" as="surf" hint-placeholder-count="2">
+            <div style="{{surf.wrapStyle}}">
+              <span style="{{surf.titleStyle}}">{{surf.title}}</span>
+              <div style="{{surf.stripeStyle}}">
+                <span style="{{surf.captionStyle}}">{{surf.caption}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <div style="{{cardStyle}}">
+        <button style="{{wireToggleStyle}}" onClick="{{toggleWire}}">
+          <span>Raw MCP wire protocol</span>
+          <span>{{wireToggleLabel}}</span>
+        </button>
+        <sc-if value="{{showWire}}" hint-placeholder-val="{{false}}">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin-top:16px">
+            <div>
+              <div style="{{codeLabelStyle}}">Client → Server</div>
+              <pre style="{{reqCodeStyle}}">{{requestText}}</pre>
+            </div>
+            <div>
+              <div style="{{codeLabelStyle}}">Server → Client</div>
+              <pre style="{{resCodeStyle}}">{{responseText}}</pre>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:920,&quot;height&quot;:1000},&quot;defaultDarkMode&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;showTimelineStats&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Theme&quot;}}">
+const AQUA = '#54cea1', CYAN = '#0e84f1', TANGERINE = '#ff9254', AMETHYST = '#9461fb', PINK = '#ff5470';
+const STEP_COLORS = [AQUA, CYAN, TANGERINE, AMETHYST];
+const LIGHT = { bg: '#ffffff', fg: '#000000', textSecondary: '#52525b', border: '#000000', borderSubtle: '#e0e0e0', mutedBg: '#f4f4f5', shadowColor: '#e0e0e0' };
+const DARK = { bg: '#0a0a0b', fg: '#f2f2f2', textSecondary: '#b4b4bd', border: '#ffffff', borderSubtle: 'rgba(255,255,255,0.25)', mutedBg: 'rgba(255,255,255,0.06)', shadowColor: '#27272a' };
+
+const PRESETS = [
+  { label: '7-Day Price Trajectory', sub: 'Consumer electronics · pricing', accent: CYAN, query: 'Forecast 7-day competitor price undercut trajectory and regional margin deflation across 48 key search terms.' },
+  { label: '4-Brand Price Benchmark', sub: 'Footwear & apparel · pricing', accent: AMETHYST, query: 'Compare our store pricing against top 4 rival brands across high-velocity sneakers.' },
+  { label: 'Warehouse Buffer Gauge', sub: 'Warehouse logistics · inventory', accent: TANGERINE, query: 'Evaluate warehouse safety stock buffer capacity ahead of peak demand.' },
+  { label: 'Omnichannel GMV Split', sub: 'Specialty coffee · trend', accent: AQUA, query: 'Break down revenue contribution across mobile app, desktop web, and marketplaces.' },
+];
+const VIS_OPTIONS = [
+  { value: 'auto', label: 'Auto' },
+  { value: 'trend_line', label: 'Trend line' },
+  { value: 'bar_comparison', label: 'Ranked bars' },
+  { value: 'progress_gauge', label: 'Progress gauge' },
+  { value: 'breakdown_distribution', label: 'Segment breakdown' },
+];
+const ERROR_SCENARIOS = [
+  { key: 'rate_limit', label: '429 rate limit', message: '429 Too Many Requests — merchant_8492 exceeded 60 calls/min quota.' },
+  { key: 'invalid_schema', label: 'Invalid schema', message: 'Zod validation failed: metric.trend must be one of up | down | flat.' },
+  { key: 'timeout', label: 'Upstream timeout', message: 'Upstream Gemini Flash call exceeded the 8000ms execution budget.' },
+];
+const STEP_LABELS = ['Query & widget intent', 'MCP tool call', 'Schema synthesis', 'Adaptive render'];
+
+class Component extends DCLogic {
+  state = {
+    dark: !!this.props.defaultDarkMode,
+    query: PRESETS[0].query,
+    visType: 'auto',
+    activePresetIdx: null,
+    loading: false,
+    step: -1,
+    hasRun: false,
+    done: false,
+    error: null,
+    stats: null,
+    showWire: false,
+  };
+
+  timers = [];
+
+  componentWillUnmount() {
+    this.timers.forEach(clearTimeout);
+  }
+
+  clearTimers() {
+    this.timers.forEach(clearTimeout);
+    this.timers = [];
+  }
+
+  computeStats(presetIdx) {
+    const base = 260 + (presetIdx ?? 0) * 90;
+    const latency = base + 60;
+    const tokensIn = 420 + (presetIdx ?? 0) * 35;
+    const tokensOut = 180 + (presetIdx ?? 0) * 22;
+    const cost = ((tokensIn + tokensOut) * 0.0000027).toFixed(4);
+    return { latency, tokensIn, tokensOut, cost };
+  }
+
+  run(opts) {
+    this.clearTimers();
+    const presetIdx = opts.presetIdx ?? null;
+    const query = opts.query ?? PRESETS[presetIdx ?? 0].query;
+    const errorKey = opts.errorKey ?? null;
+    const failStep = errorKey ? 2 : -1;
+    const errorScenario = errorKey ? ERROR_SCENARIOS.find((e) => e.key === errorKey) : null;
+
+    this.setState({
+      loading: true, hasRun: true, done: false, error: null, stats: null,
+      step: 0, activePresetIdx: presetIdx, query, showWire: false,
+    });
+
+    [1, 2, 3].forEach((i) => {
+      const t = setTimeout(() => {
+        if (failStep === i) {
+          this.setState({ loading: false, error: { message: errorScenario.message, atStep: i } });
+        } else if (this.state.error) {
+          return;
+        } else if (i < 3) {
+          this.setState({ step: i });
+        } else {
+          this.setState({ loading: false, done: true, step: i, stats: this.computeStats(presetIdx) });
+        }
+      }, 430 * i);
+      this.timers.push(t);
+    });
+  }
+
+  renderVals() {
+    const c = this.state.dark ? DARK : LIGHT;
+    const s = this.state;
+
+    const cardStyle = { background: c.bg, border: `2px solid ${c.border}`, borderRadius: 20, boxShadow: `4px 4px 0 ${c.shadowColor}`, padding: 24 };
+
+    const presetsView = PRESETS.map((p, i) => {
+      const selected = s.activePresetIdx === i;
+      return {
+        label: p.label, sub: p.sub,
+        subColor: selected ? 'rgba(255,255,255,.85)' : c.textSecondary,
+        style: {
+          background: selected ? p.accent : c.mutedBg, color: selected ? '#fff' : c.fg,
+          border: `2px solid ${selected ? p.accent : c.borderSubtle}`, borderRadius: 14,
+          padding: '12px 14px', cursor: 'pointer', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: 4,
+        },
+        onClick: () => this.run({ presetIdx: i }),
+      };
+    });
+
+    const visOptionsView = VIS_OPTIONS.map((v) => {
+      const selected = s.visType === v.value;
+      return {
+        label: v.label,
+        style: {
+          background: selected ? c.fg : 'transparent', color: selected ? c.bg : c.textSecondary,
+          border: `2px solid ${selected ? c.fg : c.borderSubtle}`, borderRadius: 80, padding: '8px 14px',
+          fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.68rem', fontWeight: 600,
+          textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer',
+        },
+        onClick: () => this.setState({ visType: v.value }),
+      };
+    });
+
+    const errorChipsView = ERROR_SCENARIOS.map((e) => ({
+      label: e.label,
+      style: {
+        background: 'transparent', border: `2px solid ${PINK}`, color: PINK, borderRadius: 80,
+        padding: '8px 14px', fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.68rem',
+        fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.03em', cursor: 'pointer',
+      },
+      onClick: () => this.run({ presetIdx: s.activePresetIdx ?? 0, query: s.query, errorKey: e.key }),
+    }));
+
+    const timelineStepsView = STEP_LABELS.map((label, i) => {
+      let status = 'pending';
+      if (s.error && s.error.atStep === i) status = 'error';
+      else if (s.error && i > s.error.atStep) status = 'pending';
+      else if (i < s.step) status = 'done';
+      else if (i === s.step && s.loading) status = 'active';
+      else if (i === s.step && s.done) status = 'done';
+
+      const stepColor = STEP_COLORS[i];
+      let circleStyle = {
+        width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600, fontSize: '0.8rem',
+      };
+      let mark = String(i + 1), textColor = c.textSecondary;
+      if (status === 'done') {
+        circleStyle = { ...circleStyle, background: stepColor, color: '#fff', border: `2px solid ${stepColor}` };
+        mark = '✓'; textColor = c.fg;
+      } else if (status === 'active') {
+        circleStyle = { ...circleStyle, background: c.bg, color: stepColor, border: `2px solid ${stepColor}`, animation: 'pulse 1.1s ease-in-out infinite' };
+        textColor = stepColor;
+      } else if (status === 'error') {
+        circleStyle = { ...circleStyle, background: PINK, color: '#fff', border: `2px solid ${PINK}` };
+        mark = '!'; textColor = PINK;
+      } else {
+        circleStyle = { ...circleStyle, background: c.mutedBg, color: c.textSecondary, border: `2px solid ${c.borderSubtle}` };
+      }
+
+      const lineColor = (i < s.step || s.done) ? stepColor : c.borderSubtle;
+      return {
+        label, mark, circleStyle, textColor,
+        flexGrow: i < 3 ? '1' : '0 0 auto',
+        showLine: i < 3,
+        lineStyle: { height: 2, flex: 1, minWidth: 24, margin: '0 4px', background: lineColor, marginTop: -22 },
+      };
+    });
+
+    const statsView = s.stats ? (this.props.showTimelineStats ?? true) ? [
+      { label: 'Latency', value: `${s.stats.latency}ms`, labelColor: c.textSecondary, style: { border: `2px solid ${c.borderSubtle}`, borderRadius: 14, padding: '10px 16px', flex: '1 1 140px' } },
+      { label: 'Tokens (in / out)', value: `${s.stats.tokensIn} / ${s.stats.tokensOut}`, labelColor: c.textSecondary, style: { border: `2px solid ${c.borderSubtle}`, borderRadius: 14, padding: '10px 16px', flex: '1 1 140px' } },
+      { label: 'Est. cost', value: `$${s.stats.cost}`, labelColor: c.textSecondary, style: { border: `2px solid ${c.borderSubtle}`, borderRadius: 14, padding: '10px 16px', flex: '1 1 140px' } },
+    ] : null : null;
+
+    const surfacesView = [
+      { title: 'Surface A — Editorial', accent: CYAN, caption: 'MerchantCenterCard\n(serif, warm editorial)' },
+      { title: 'Surface B — Constructivist', accent: TANGERINE, caption: 'AdsBanner\n(zero radius, vivid)' },
+    ].map((surf) => ({
+      title: surf.title,
+      titleStyle: { fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: surf.accent, fontWeight: 600 },
+      wrapStyle: { border: `2px solid ${c.borderSubtle}`, borderRadius: 16, padding: 16 },
+      stripeStyle: { marginTop: 10, height: 120, borderRadius: 10, background: `repeating-linear-gradient(135deg, ${surf.accent}26, ${surf.accent}26 10px, transparent 10px, transparent 20px)`, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      captionStyle: { fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.65rem', color: c.textSecondary, textAlign: 'center', whiteSpace: 'pre-line' },
+      caption: surf.caption,
+    }));
+
+    const activePreset = s.activePresetIdx != null ? PRESETS[s.activePresetIdx] : null;
+    const toolArgs = { merchant_id: 'merchant_8492', category: activePreset?.sub ?? 'general', visualization_type: s.visType, query: s.query };
+    const responseObj = s.error
+      ? { jsonrpc: '2.0', id: 1, error: { code: -32000, message: s.error.message } }
+      : s.stats
+      ? { jsonrpc: '2.0', id: 1, result: { structuredContent: { headline: activePreset?.label ?? 'Merchant insight', metric: { label: 'Impact', value: `+${(s.stats.latency % 20) + 4}%`, trend: 'up' }, action: 'Review recommended adjustment' } } }
+      : null;
+
+    return {
+      pageStyle: { minHeight: '100vh', background: c.bg, color: c.fg, fontFamily: "'Inter',system-ui,sans-serif", padding: '56px 20px 96px', display: 'flex', justifyContent: 'center', transition: 'background .25s,color .25s' },
+      wrapStyle: { maxWidth: 880, width: '100%', display: 'flex', flexDirection: 'column', gap: 28 },
+      badgeStyle: { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 14px', borderRadius: 80, border: `2px solid ${c.border}`, fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' },
+      dotStyle: { width: 8, height: 8, borderRadius: '50%', background: AQUA, animation: 'pulse 1.6s ease-in-out infinite', display: 'inline-block' },
+      themeBtnStyle: { padding: '8px 16px', borderRadius: 80, border: `2px solid ${c.border}`, background: 'transparent', color: c.fg, fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.68rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: 'pointer' },
+      themeBtnLabel: s.dark ? 'Light mode' : 'Dark mode',
+      toggleDark: () => this.setState((st) => ({ dark: !st.dark })),
+      h1Style: { fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: 'clamp(2rem,4vw,2.75rem)', letterSpacing: '-0.02em', lineHeight: 1.1, margin: 0 },
+      accentSpanStyle: { color: CYAN },
+      subtitleStyle: { fontFamily: "'Inter',sans-serif", fontSize: '1rem', color: c.textSecondary, lineHeight: 1.55, maxWidth: 600, marginTop: 12 },
+      cardStyle,
+      sectionLabelStyle: { fontFamily: "'Plus Jakarta Sans',sans-serif", fontWeight: 800, fontSize: '0.95rem', letterSpacing: '-0.01em' },
+      fieldLabelStyle: { fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '.06em', color: c.textSecondary },
+      dividerStyle: { height: 2, background: c.borderSubtle, margin: '20px 0' },
+      textSecondary: c.textSecondary,
+      presetsView, visOptionsView, errorChipsView,
+      query: s.query,
+      onQueryChange: (e) => this.setState({ query: e.target.value }),
+      onSubmit: (e) => { e.preventDefault(); this.run({ query: s.query, presetIdx: s.activePresetIdx }); },
+      inputStyle: { flex: '1 1 260px', padding: '12px 16px', borderRadius: 80, border: `2px solid ${c.borderSubtle}`, background: c.mutedBg, color: c.fg, fontFamily: "'Inter',sans-serif", fontSize: '0.85rem', outline: 'none' },
+      primaryBtnStyle: { padding: '12px 24px', borderRadius: 80, border: `2px solid ${c.border}`, background: c.fg, color: c.bg, fontFamily: "'IBM Plex Mono',monospace", fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', cursor: 'pointer' },
+      hasRun: s.hasRun,
+      timelineStepsView,
+      errorMsg: s.error ? s.error.message : null,
+      errorBoxStyle: { marginTop: 22, padding: '16px 18px', borderRadius: 14, border: `2px solid ${PINK}`, background: s.dark ? 'rgba(255,84,112,0.08)' : '#fff1f3', color: s.dark ? '#ff8fa3' : '#b3123f' },
+      statsView,
+      hasCompleted: !!s.stats,
+      surfacesView,
+      wireToggleStyle: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'transparent', border: 'none', padding: 0, cursor: 'pointer', fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.72rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: c.fg },
+      wireToggleLabel: s.showWire ? '−' : '+',
+      toggleWire: () => this.setState((st) => ({ showWire: !st.showWire })),
+      showWire: s.showWire,
+      codeLabelStyle: { fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: c.textSecondary, marginBottom: 6 },
+      reqCodeStyle: { background: '#0a0a0b', border: '2px solid #000', borderRadius: 8, padding: 14, fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.72rem', lineHeight: 1.6, overflowX: 'auto', margin: 0, color: '#7dd3fc' },
+      resCodeStyle: { background: '#0a0a0b', border: '2px solid #000', borderRadius: 8, padding: 14, fontFamily: "'IBM Plex Mono',monospace", fontSize: '0.72rem', lineHeight: 1.6, overflowX: 'auto', margin: 0, color: '#6ee7b7' },
+      requestText: JSON.stringify(toolArgs, null, 2),
+      responseText: responseObj ? JSON.stringify(responseObj, null, 2) : '',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

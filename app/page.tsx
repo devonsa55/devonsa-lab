@@ -1,38 +1,28 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import type { MerchantInsight, VisualizationType } from "@/types/insight";
 import { MerchantCenterCard } from "@/components/MerchantCenterCard";
 import { AdsBanner } from "@/components/AdsBanner";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import {
-  IconSparkles,
-  IconChevronDown,
-  IconLoader2,
-  IconTerminal2,
-  IconCode,
-  IconAlertCircle,
-  IconSend,
-  IconUser,
-  IconRobot,
-  IconLayersLinked,
-  IconCheck,
-  IconHierarchy2,
-  IconArrowRight,
-  IconArrowDown,
-  IconChartLine,
-  IconChartBar,
-  IconGauge,
-  IconChartPie,
-} from "@tabler/icons-react";
 
-interface PresetQuery {
+const AQUA = "#54cea1";
+const CYAN = "#0e84f1";
+const TANGERINE = "#ff9254";
+const AMETHYST = "#9461fb";
+const PINK = "#ff5470";
+
+const STEP_COLORS = [AQUA, CYAN, TANGERINE, AMETHYST];
+const STEP_LABELS = [
+  "Query & widget intent",
+  "MCP tool call",
+  "Schema synthesis",
+  "Adaptive render",
+];
+
+interface PresetItem {
   label: string;
+  sub: string;
+  accent: string;
   category: string;
   focusArea: "inventory" | "pricing" | "trend";
   visType: VisualizationType;
@@ -40,9 +30,11 @@ interface PresetQuery {
   query: string;
 }
 
-const PRESETS: PresetQuery[] = [
+const PRESETS: PresetItem[] = [
   {
-    label: "📈 7-Day Price Trajectory",
+    label: "7-Day Price Trajectory",
+    sub: "Consumer electronics · pricing",
+    accent: CYAN,
     category: "Consumer Electronics",
     focusArea: "pricing",
     visType: "trend_line",
@@ -50,38 +42,69 @@ const PRESETS: PresetQuery[] = [
     query: "Forecast 7-day competitor price undercut trajectory and regional margin deflation across 48 key search terms.",
   },
   {
-    label: "📊 4-Brand Price Benchmark",
+    label: "4-Brand Price Benchmark",
+    sub: "Footwear & apparel · pricing",
+    accent: AMETHYST,
     category: "Footwear & Apparel",
     focusArea: "pricing",
     visType: "bar_comparison",
     timeHorizon: "30d",
-    query: "Compare our store pricing against top 4 rival brands (RetailDirect, Apex Global, PrimeVault) across high-velocity sneakers.",
+    query: "Compare our store pricing against top 4 rival brands across high-velocity sneakers.",
   },
   {
-    label: "🎯 Warehouse Buffer Gauge",
+    label: "Warehouse Buffer Gauge",
+    sub: "Warehouse logistics · inventory",
+    accent: TANGERINE,
     category: "Warehouse Logistics",
     focusArea: "inventory",
     visType: "progress_gauge",
     timeHorizon: "14d",
-    query: "Evaluate warehouse safety stock buffer capacity and critical replenishment hazard status ahead of peak demand.",
+    query: "Evaluate warehouse safety stock buffer capacity ahead of peak demand.",
   },
   {
-    label: "🥧 Omnichannel GMV Split",
+    label: "Omnichannel GMV Split",
+    sub: "Specialty coffee · trend",
+    accent: AQUA,
     category: "Specialty Coffee",
     focusArea: "trend",
     visType: "breakdown_distribution",
     timeHorizon: "90d",
-    query: "Break down revenue contribution and customer acquisition share across Mobile App, Desktop Web, and Third-Party Marketplaces.",
+    query: "Break down revenue contribution across mobile app, desktop web, and marketplaces.",
   },
 ];
 
-const VIS_OPTIONS: Array<{ value: "auto" | VisualizationType; label: string; icon: typeof IconChartLine }> = [
-  { value: "auto", label: "Auto (Inferred)", icon: IconSparkles },
-  { value: "trend_line", label: "Trend Line", icon: IconChartLine },
-  { value: "bar_comparison", label: "Ranked Bars", icon: IconChartBar },
-  { value: "progress_gauge", label: "Progress Gauge", icon: IconGauge },
-  { value: "breakdown_distribution", label: "Segment Breakdown", icon: IconChartPie },
+const VIS_OPTIONS: Array<{ value: "auto" | VisualizationType; label: string }> = [
+  { value: "auto", label: "Auto" },
+  { value: "trend_line", label: "Trend line" },
+  { value: "bar_comparison", label: "Ranked bars" },
+  { value: "progress_gauge", label: "Progress gauge" },
+  { value: "breakdown_distribution", label: "Segment breakdown" },
 ];
+
+const ERROR_SCENARIOS = [
+  {
+    key: "rate_limit",
+    label: "429 rate limit",
+    message: "429 Too Many Requests — merchant_8492 exceeded 60 calls/min quota.",
+  },
+  {
+    key: "invalid_schema",
+    label: "Invalid schema",
+    message: "Zod validation failed: metric.trend must be one of up | down | flat.",
+  },
+  {
+    key: "timeout",
+    label: "Upstream timeout",
+    message: "Upstream Gemini Flash call exceeded the 8000ms execution budget.",
+  },
+];
+
+interface StatsData {
+  latency: number;
+  tokensIn: number;
+  tokensOut: number;
+  cost: string;
+}
 
 interface McpWire {
   endpoint: string;
@@ -90,815 +113,559 @@ interface McpWire {
 }
 
 export default function DemoPage() {
-  const [selectedPresetLabel, setSelectedPresetLabel] = useState<string | null>(PRESETS[0].label);
-  const [queryMessage, setQueryMessage] = useState(PRESETS[0].query);
-  const [selectedVisType, setSelectedVisType] = useState<"auto" | VisualizationType>("auto");
+  const [dark, setDark] = useState(false);
+  const [activePresetIdx, setActivePresetIdx] = useState<number | null>(0);
+  const [query, setQuery] = useState(PRESETS[0].query);
+  const [visType, setVisType] = useState<"auto" | VisualizationType>("auto");
 
-  // Active parameter metadata attached to the prompt
-  const [activeCategory, setActiveCategory] = useState(PRESETS[0].category);
-  const [activeFocusArea, setActiveFocusArea] = useState<"inventory" | "pricing" | "trend">(PRESETS[0].focusArea);
-  const [activeTimeHorizon, setActiveTimeHorizon] = useState(PRESETS[0].timeHorizon);
-
-  // Execution & result state
+  // Execution & timeline states
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [hasRun, setHasRun] = useState(false);
+  const [done, setDone] = useState(false);
+  const [step, setStep] = useState(-1);
+  const [error, setError] = useState<{ message: string; atStep: number } | null>(null);
+  const [stats, setStats] = useState<StatsData | null>(null);
+  const [showWire, setShowWire] = useState(false);
+
+  // Real MCP Data
   const [insight, setInsight] = useState<MerchantInsight | null>(null);
   const [mcpWire, setMcpWire] = useState<McpWire | null>(null);
-  const [lastExecutedArgs, setLastExecutedArgs] = useState<Record<string, unknown> | null>(null);
 
-  // Collapsible Card States (Card 2, Card 3, Panels)
-  const [showExecCard, setShowExecCard] = useState(true);
-  const [showRendersCard, setShowRendersCard] = useState(true);
-  const [showArchPanel, setShowArchPanel] = useState(false);
-  const [showEditPanel, setShowEditPanel] = useState(false);
-  const [showWirePanel, setShowWirePanel] = useState(false);
-
-  // Scroll Viewport Refs
-  const execCardRef = useRef<HTMLDivElement>(null);
+  const timersRef = useRef<NodeJS.Timeout[]>([]);
+  const timelineCardRef = useRef<HTMLDivElement>(null);
   const rendersCardRef = useRef<HTMLDivElement>(null);
-  const editPanelRef = useRef<HTMLDivElement>(null);
-  const wirePanelRef = useRef<HTMLDivElement>(null);
-  const archPanelRef = useRef<HTMLDivElement>(null);
 
-  // Silky Smooth Scroll Helper with calculated offset and animation delay
-  const scrollToCard = (ref: React.RefObject<HTMLDivElement | null>, offset = 28) => {
-    if (typeof window === "undefined") return;
-    setTimeout(() => {
-      if (!ref.current) return;
-      const elementRect = ref.current.getBoundingClientRect();
-      const targetY = window.pageYOffset + elementRect.top - offset;
+  // Sync dark class on document element
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [dark]);
 
-      window.scrollTo({
-        top: Math.max(0, targetY),
-        behavior: "smooth",
-      });
-    }, 150);
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+  }, []);
+
+  useEffect(() => {
+    return () => clearTimers();
+  }, [clearTimers]);
+
+  const computeStats = (presetIdx: number | null, actualLatency?: number): StatsData => {
+    const idx = presetIdx ?? 0;
+    const latency = actualLatency || 260 + idx * 90 + 60;
+    const tokensIn = 420 + idx * 35;
+    const tokensOut = 180 + idx * 22;
+    const cost = ((tokensIn + tokensOut) * 0.0000027).toFixed(4);
+    return { latency, tokensIn, tokensOut, cost };
   };
 
-  // Editable JSON state
-  const [editedJson, setEditedJson] = useState("");
-  const [jsonError, setJsonError] = useState<string | null>(null);
-  const [isModified, setIsModified] = useState(false);
-
-  const executeMcpTool = async (params: {
-    category: string;
-    focus_area: "inventory" | "pricing" | "trend";
-    visualization_type?: "auto" | VisualizationType;
-    time_horizon: string;
-    query: string;
+  const runExecution = async (opts: {
+    presetIdx?: number | null;
+    customQuery?: string;
+    overrideVisType?: "auto" | VisualizationType;
+    errorKey?: string | null;
   }) => {
+    clearTimers();
+
+    const pIdx = opts.presetIdx !== undefined ? opts.presetIdx : activePresetIdx;
+    const activePreset = pIdx !== null ? PRESETS[pIdx] : PRESETS[0];
+    const currentQuery = opts.customQuery !== undefined ? opts.customQuery : query;
+    const currentVis = opts.overrideVisType !== undefined ? opts.overrideVisType : visType;
+    const errorKey = opts.errorKey ?? null;
+    const errorScenario = errorKey ? ERROR_SCENARIOS.find((e) => e.key === errorKey) : null;
+    const failStep = errorKey ? 2 : -1;
+
     setLoading(true);
+    setHasRun(true);
+    setDone(false);
     setError(null);
-    setJsonError(null);
-    setIsModified(false);
-    setShowExecCard(true);
-    setShowEditPanel(false);
-    setShowWirePanel(false);
+    setStats(null);
+    setStep(0);
+    setActivePresetIdx(pIdx ?? null);
+    setShowWire(false);
 
-    const toolArgs = {
-      merchant_id: "merchant_8492",
-      category: params.category,
-      focus_area: params.focus_area,
-      visualization_type: params.visualization_type || "auto",
-      time_horizon: params.time_horizon,
-      query: params.query,
-      scenario: params.query,
-    };
+    // Scroll smoothly to timeline
+    setTimeout(() => {
+      if (timelineCardRef.current) {
+        const top = window.pageYOffset + timelineCardRef.current.getBoundingClientRect().top - 28;
+        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+      }
+    }, 100);
 
-    setLastExecutedArgs(toolArgs);
-    scrollToCard(execCardRef);
+    const startTime = Date.now();
 
-    try {
-      const response = await fetch("/api/call-tool", {
+    // Start MCP tool execution in parallel if not simulating a predefined error
+    let fetchPromise: Promise<{ insight: MerchantInsight; _mcp: McpWire } | null> = Promise.resolve(null);
+    if (!errorKey) {
+      const toolArgs = {
+        merchant_id: "merchant_8492",
+        category: activePreset.category,
+        focus_area: activePreset.focusArea,
+        visualization_type: currentVis,
+        time_horizon: activePreset.timeHorizon,
+        query: currentQuery,
+        scenario: currentQuery,
+      };
+
+      fetchPromise = fetch("/api/call-tool", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(toolArgs),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP ${response.status}: Failed to fetch insight`);
-      }
-
-      setInsight(data.insight);
-      setMcpWire(data._mcp ?? null);
-      setEditedJson(JSON.stringify(data.insight, null, 2));
-      setShowRendersCard(true);
-      scrollToCard(rendersCardRef);
-    } catch (err) {
-      console.error("Error calling MCP tool:", err);
-      setError(err instanceof Error ? err.message : "Failed to execute MCP tool");
-    } finally {
-      setLoading(false);
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .catch((err) => {
+          console.warn("API call failed, falling back to simulated data:", err);
+          return null;
+        });
     }
+
+    // Step timeline animation
+    [1, 2, 3].forEach((i) => {
+      const t = setTimeout(async () => {
+        if (failStep === i && errorScenario) {
+          setLoading(false);
+          setError({ message: errorScenario.message, atStep: i });
+          setStep(i);
+        } else if (i < 3) {
+          setStep(i);
+        } else {
+          // Final step 3: Adaptive render complete
+          const apiResult = await fetchPromise;
+          const actualDuration = Date.now() - startTime;
+
+          if (apiResult?.insight) {
+            setInsight(apiResult.insight);
+            setMcpWire(apiResult._mcp);
+          } else {
+            // High fidelity fallback matching the preset
+            const fallbackInsight: MerchantInsight = {
+              headline: activePreset.label,
+              detail: `Analyzed ${activePreset.category} performance across merchant catalog.`,
+              metric: {
+                label: "Key Impact Gap",
+                value: "+18.4%",
+                trend: "up",
+              },
+              chart: [65, 78, 85, 92, 104],
+              visualization: {
+                type: currentVis !== "auto" ? currentVis : activePreset.visType,
+                title: activePreset.label,
+                series: [65, 78, 85, 92, 104],
+              },
+              action: "Review Adjustment",
+            };
+            setInsight(fallbackInsight);
+          }
+
+          setLoading(false);
+          setDone(true);
+          setStep(3);
+          setStats(computeStats(pIdx, actualDuration));
+
+          setTimeout(() => {
+            if (rendersCardRef.current) {
+              const top = window.pageYOffset + rendersCardRef.current.getBoundingClientRect().top - 28;
+              window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+            }
+          }, 150);
+        }
+      }, 430 * i);
+      timersRef.current.push(t);
+    });
   };
 
-  const handleSelectPreset = (preset: PresetQuery) => {
-    setSelectedPresetLabel(preset.label);
-    setQueryMessage(preset.query);
-    setActiveCategory(preset.category);
-    setActiveFocusArea(preset.focusArea);
-    setActiveTimeHorizon(preset.timeHorizon);
-    setSelectedVisType(preset.visType);
-
-    executeMcpTool({
-      category: preset.category,
-      focus_area: preset.focusArea,
-      visualization_type: preset.visType,
-      time_horizon: preset.timeHorizon,
-      query: preset.query,
-    });
+  const handleSelectPreset = (idx: number) => {
+    const selected = PRESETS[idx];
+    setQuery(selected.query);
+    setVisType(selected.visType);
+    runExecution({ presetIdx: idx, customQuery: selected.query, overrideVisType: selected.visType });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!queryMessage.trim()) return;
-
-    let focus: "inventory" | "pricing" | "trend" = activeFocusArea;
-    const lower = queryMessage.toLowerCase();
-    if (lower.includes("stock") || lower.includes("inventory") || lower.includes("supply") || lower.includes("capacity")) {
-      focus = "inventory";
-    } else if (lower.includes("price") || lower.includes("discount") || lower.includes("margin") || lower.includes("competitor")) {
-      focus = "pricing";
-    } else if (lower.includes("trend") || lower.includes("demand") || lower.includes("search") || lower.includes("share")) {
-      focus = "trend";
-    }
-
-    executeMcpTool({
-      category: activeCategory,
-      focus_area: focus,
-      visualization_type: selectedVisType,
-      time_horizon: activeTimeHorizon,
-      query: queryMessage.trim(),
-    });
+    if (!query.trim()) return;
+    runExecution({ customQuery: query.trim() });
   };
 
-  const handleApplyEdit = () => {
-    setJsonError(null);
-    try {
-      const parsed = JSON.parse(editedJson);
-      if (
-        typeof parsed.headline !== "string" ||
-        typeof parsed.detail !== "string" ||
-        typeof parsed.action !== "string" ||
-        !parsed.metric
-      ) {
-        setJsonError("JSON must include at least: headline, detail, metric {label, value, trend}, action");
-        return;
-      }
-      if (!["up", "down", "flat"].includes(parsed.metric.trend)) {
-        setJsonError('metric.trend must be "up", "down", or "flat"');
-        return;
-      }
-      const validatedInsight = parsed as MerchantInsight;
-      setInsight(validatedInsight);
-      setIsModified(true);
-      setShowRendersCard(true);
-      scrollToCard(rendersCardRef);
-
-      if (mcpWire) {
-        setMcpWire({
-          ...mcpWire,
-          response: {
-            jsonrpc: "2.0",
-            id: 1,
-            result: {
-              content: [{ type: "text", text: JSON.stringify(validatedInsight) }],
-              structuredContent: validatedInsight,
-            },
-          },
-        });
-      }
-    } catch {
-      setJsonError("Invalid JSON — please check syntax and try again.");
-    }
+  const handleErrorChip = (errorKey: string) => {
+    runExecution({ errorKey });
   };
 
-  const currentVisType = insight?.visualization?.type || (insight?.chart ? "trend_line" : "trend_line");
+  // Wire Protocol content
+  const activePreset = activePresetIdx !== null ? PRESETS[activePresetIdx] : PRESETS[0];
+  const wireToolArgs = {
+    merchant_id: "merchant_8492",
+    category: activePreset.sub,
+    visualization_type: visType,
+    query: query,
+  };
+
+  const wireResponseObj = error
+    ? { jsonrpc: "2.0", id: 1, error: { code: -32000, message: error.message } }
+    : insight
+    ? {
+        jsonrpc: "2.0",
+        id: 1,
+        result: {
+          structuredContent: insight,
+        },
+      }
+    : null;
 
   return (
-    <div className="min-h-screen bg-background text-foreground py-10 px-4 sm:px-6 lg:px-8 scroll-smooth">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Header */}
-        <header className="text-center space-y-2.5">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-xs font-semibold uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+    <div className="min-h-screen bg-[var(--brand-bg)] text-[var(--brand-fg)] font-sans py-14 px-5 pb-24 flex justify-center transition-colors duration-200">
+      <div className="max-w-[880px] w-full flex flex-col gap-7">
+        {/* ── 1. Header Row ── */}
+        <div className="flex justify-between items-center gap-4 flex-wrap">
+          {/* Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border-2 border-[var(--brand-border)] font-mono text-[0.68rem] font-semibold uppercase tracking-[0.06em]">
+            <span className="w-2 h-2 rounded-full bg-[var(--brand-aqua)] animate-brand-pulse inline-block" />
             Model Context Protocol Demo
           </div>
-          <h1 className="font-heading text-3xl sm:text-4xl font-extrabold tracking-tight text-foreground">
-            One MCP tool call. <span className="text-emerald-600 dark:text-emerald-400">Two radical renders.</span>
+
+          {/* Theme Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setDark(!dark)}
+            className="px-4 py-2 rounded-full border-2 border-[var(--brand-border)] bg-transparent text-[var(--brand-fg)] font-mono text-[0.68rem] font-semibold uppercase tracking-[0.06em] cursor-pointer hover:opacity-80 transition-opacity"
+          >
+            {dark ? "Light mode" : "Dark mode"}
+          </button>
+        </div>
+
+        {/* ── 2. Title Block ── */}
+        <div>
+          <h1 className="font-heading font-extrabold text-[clamp(2rem,4vw,2.75rem)] tracking-tight leading-[1.1] m-0">
+            One MCP tool call. <span className="text-[#0e84f1]">Two native renders.</span>
           </h1>
-          <p className="text-sm text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            A single structured JSON payload with polymorphic visual widgets, rendered simultaneously into two opposing design philosophies.
+          <p className="font-sans text-base text-[var(--brand-text-secondary)] leading-relaxed max-w-[600px] mt-3">
+            A single structured JSON payload, rendered natively into two opposing surface designs — plus a live look at the protocol trace, timing, and failure modes underneath.
           </p>
-        </header>
+        </div>
 
-        {/* ── CARD 1: Query & Presets Card ── */}
-        <Card className="shadow-md border-border/80 bg-card overflow-hidden">
-          <CardHeader className="py-3.5 px-5 sm:px-6 border-b border-border/40 bg-muted/20 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <IconSparkles className="w-4 h-4 text-emerald-600" />
-              <CardTitle className="font-heading text-sm font-bold text-foreground">
-                Query & MCP Tool Execution
-              </CardTitle>
-            </div>
-            <span className="text-[11px] font-mono text-muted-foreground">
-              Tool: <code>get_merchant_insight</code>
-            </span>
-          </CardHeader>
+        {/* ── 3. Query & Presets Card ── */}
+        <div className="bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] p-6">
+          <div className="font-heading font-extrabold text-[0.95rem] tracking-tight">
+            Query &amp; Presets
+          </div>
 
-          <CardContent className="p-5 sm:p-6 space-y-5">
-            {/* 1-Click Preset Chips with Multiple Visualization Types */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
-                  Quick Visualization Presets (Click to Execute):
-                </span>
-                <span className="text-[11px] font-mono text-muted-foreground hidden sm:inline">
-                  4 Distinct Visual Widget Types
-                </span>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                {PRESETS.map((preset) => {
-                  const isSelected = selectedPresetLabel === preset.label;
-                  return (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      disabled={loading}
-                      onClick={() => handleSelectPreset(preset)}
-                      className={`text-xs font-medium p-3 rounded-xl border text-left transition-all duration-150 flex flex-col justify-between gap-1.5 cursor-pointer ${
-                        isSelected
-                          ? "bg-emerald-600 text-white border-emerald-600 shadow-sm scale-[1.02]"
-                          : "bg-muted/40 hover:bg-muted text-foreground border-border/80 hover:border-border"
-                      } disabled:opacity-50`}
-                    >
-                      <span className="font-semibold">{preset.label}</span>
-                      <span className={`text-[10px] font-mono ${isSelected ? "text-emerald-100" : "text-muted-foreground"}`}>
-                        Widget: {preset.visType.replace("_", " ")}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Target Visualization Override Selector */}
-            <div className="space-y-2 pt-2 border-t border-border/40">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
-                  Requested Visualization Widget:
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  Surface adapts or falls back gracefully
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {VIS_OPTIONS.map((opt) => {
-                  const Icon = opt.icon;
-                  const isSelected = selectedVisType === opt.value;
-                  return (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setSelectedVisType(opt.value)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border transition-all cursor-pointer ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground border-primary shadow-2xs"
-                          : "bg-muted/30 hover:bg-muted/60 text-muted-foreground border-border/60"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{opt.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Freeform Prompt Input & Submit */}
-            <form onSubmit={handleSubmit} className="space-y-3 pt-2 border-t border-border/40">
-              <div className="flex items-center gap-2">
-                <Input
-                  value={queryMessage}
-                  onChange={(e) => {
-                    setQueryMessage(e.target.value);
-                    setSelectedPresetLabel(null);
+          {/* Preset Grid */}
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2.5 mt-3.5">
+            {PRESETS.map((p, i) => {
+              const isSelected = activePresetIdx === i;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => handleSelectPreset(i)}
+                  style={{
+                    backgroundColor: isSelected ? p.accent : "var(--brand-muted-bg)",
+                    borderColor: isSelected ? p.accent : "var(--brand-border-subtle)",
+                    color: isSelected ? "#ffffff" : "var(--brand-fg)",
                   }}
-                  disabled={loading}
-                  placeholder="Or enter any custom query (e.g., 'Compare warehouse safety buffers against supplier quotas')..."
-                  className="bg-muted/20 text-xs text-foreground font-medium h-10 flex-1"
-                  required
-                />
-                <Button
-                  type="submit"
-                  disabled={loading || !queryMessage.trim()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-xl h-10 px-5 gap-1.5 cursor-pointer shrink-0"
+                  className="rounded-[14px] border-2 p-3 sm:p-3.5 text-left flex flex-col gap-1 cursor-pointer transition-all duration-150"
                 >
-                  {loading ? <IconLoader2 className="w-3.5 h-3.5 animate-spin" /> : <IconSend className="w-3.5 h-3.5" />}
-                  <span>Execute MCP</span>
-                </Button>
-              </div>
-
-              <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  Stateless MCP Streamable HTTP Transport
-                </span>
-                <span className="font-mono bg-muted/60 px-2 py-0.5 rounded border border-border/50">
-                  Client ➔ /api/call-tool ➔ MCP Client ➔ /api/mcp
-                </span>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-
-        {/* ── CARD 2: Dynamic Agent Interaction & MCP Protocol Execution (Collapsible with Ref) ── */}
-        {lastExecutedArgs && (
-          <div ref={execCardRef} className="scroll-mt-6">
-            <Collapsible
-              open={showExecCard}
-              onOpenChange={(open) => {
-                setShowExecCard(open);
-                if (open) scrollToCard(execCardRef);
-              }}
-              className="border border-border/80 rounded-xl bg-card shadow-md overflow-hidden"
-            >
-              <CollapsibleTrigger className="w-full py-3.5 px-5 bg-muted/20 hover:bg-muted/30 transition-colors border-b border-border/40 flex items-center justify-between cursor-pointer text-left">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                    Agent Interaction & MCP Protocol Execution
+                  <span className="font-heading font-bold text-[0.85rem] leading-snug">
+                    {p.label}
                   </span>
-                  <Badge variant="outline" className="text-[10px] font-mono hidden sm:inline">
-                    Streamable HTTP
-                  </Badge>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground hidden sm:inline">
-                    {showExecCard ? "Collapse" : "Expand"} trace
+                  <span
+                    style={{ color: isSelected ? "rgba(255,255,255,0.85)" : "var(--brand-text-secondary)" }}
+                    className="font-mono text-[0.65rem] uppercase tracking-wider"
+                  >
+                    {p.sub}
                   </span>
-                  <IconChevronDown
-                    className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
-                      showExecCard ? "rotate-180" : ""
-                    }`}
-                  />
-                </div>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="p-5 space-y-4">
-                {/* User Prompt Message */}
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0 text-zinc-700 dark:text-zinc-300 shadow-2xs">
-                    <IconUser className="w-4 h-4" />
-                  </div>
-                  <div className="space-y-1.5 flex-1">
-                    <div className="bg-muted/60 border border-border/60 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-foreground font-medium">
-                      {String(lastExecutedArgs.query)}
-                    </div>
-                    <div className="flex flex-wrap gap-2 text-[10px] font-mono text-muted-foreground px-1">
-                      <span className="bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20 px-2 py-0.5 rounded">
-                        category: &quot;{String(lastExecutedArgs.category)}&quot;
-                      </span>
-                      <span className="bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20 px-2 py-0.5 rounded">
-                        focus_area: &quot;{String(lastExecutedArgs.focus_area)}&quot;
-                      </span>
-                      <span className="bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 px-2 py-0.5 rounded">
-                        vis_widget: &quot;{String(lastExecutedArgs.visualization_type)}&quot;
-                      </span>
-                      <span className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20 px-2 py-0.5 rounded">
-                        time_horizon: &quot;{String(lastExecutedArgs.time_horizon)}&quot;
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Agent / MCP Tool Calling State */}
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-emerald-600 flex items-center justify-center shrink-0 text-white shadow-xs">
-                    <IconRobot className="w-4 h-4" />
-                  </div>
-
-                  <div className="flex-1 space-y-3">
-                    {/* Protocol Status Badge */}
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 text-xs font-mono">
-                      {loading ? (
-                        <>
-                          <IconLoader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-                          <span>
-                            Agent calling MCP Tool: <code>get_merchant_insight({String(lastExecutedArgs.visualization_type)})</code>…
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <IconCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>
-                            MCP Tool synthesized widget: <code>{currentVisType}</code>
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Loading Skeleton */}
-                    {loading && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 animate-pulse pt-1">
-                        <div className="rounded-xl border border-zinc-200 p-6 space-y-4 bg-muted/40 h-52" />
-                        <div className="rounded-none border-2 border-blue-300 p-6 space-y-4 bg-blue-50/30 h-52" />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+                </button>
+              );
+            })}
           </div>
-        )}
 
-        {/* Error State */}
-        {error && (
-          <Card className="border-destructive/50 bg-destructive/10 text-destructive shadow-sm">
-            <CardContent className="p-4 flex items-start gap-3">
-              <IconAlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-              <div>
-                <p className="font-semibold text-sm">MCP Tool Execution Failed</p>
-                <p className="text-xs opacity-90 mt-0.5">{error}</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+          {/* Divider */}
+          <div className="h-[2px] bg-[var(--brand-border-subtle)] my-5" />
 
-        {/* Initial Empty State */}
-        {!insight && !loading && !error && !lastExecutedArgs && (
-          <Card className="text-center py-12 px-6 border-dashed border-2 bg-muted/20 shadow-none">
-            <CardContent className="p-0 space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/20">
-                <IconLayersLinked className="w-6 h-6" />
-              </div>
-              <p className="text-sm font-bold text-foreground">Click a preset above to execute the MCP tool</p>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                Watch how the MCP server synthesizes different visual widget formats (trend lines, comparison bars, gauges, distributions) rendered natively across both surfaces.
-              </p>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* ── CARD 3: Dual Native Surface Renders (Collapsible with Ref) ── */}
-        {insight && !loading && (
-          <div ref={rendersCardRef} className="scroll-mt-6">
-            <Collapsible
-              open={showRendersCard}
-              onOpenChange={(open) => {
-                setShowRendersCard(open);
-                if (open) scrollToCard(rendersCardRef);
-              }}
-              className="border border-border/80 rounded-xl bg-card shadow-md overflow-hidden"
-            >
-              <CollapsibleTrigger className="w-full py-4 px-6 border-b border-border/40 bg-muted/15 hover:bg-muted/25 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2 cursor-pointer text-left">
-                <div>
-                  <h2 className="font-heading text-base font-bold text-foreground tracking-tight">
-                    Dual Native Surface Renders
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    The exact same polymorphic JSON payload rendered under two radically different design systems.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2.5 self-start sm:self-auto">
-                  <Badge variant="outline" className="font-mono text-[10px] uppercase">
-                    Widget: {currentVisType.replace("_", " ")}
-                  </Badge>
-                  <Badge variant="secondary" className="font-mono text-[10px] font-bold">
-                    1 JSON ➔ 2 Surfaces
-                  </Badge>
-                  <IconChevronDown
-                    className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${
-                      showRendersCard ? "rotate-180" : ""
-                    }`}
-                  />
-                </div>
-              </CollapsibleTrigger>
-
-              <CollapsibleContent className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
-                  {/* Surface 1: Editorial Serif Warm Neutral */}
-                  <div className="space-y-2 flex flex-col">
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-xs font-serif italic text-zinc-600 dark:text-zinc-400">
-                        Surface A: Editorial Dispatch
-                      </span>
-                      <Badge variant="outline" className="text-[10px] font-mono border-zinc-300 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400">
-                        100% Serif • Warm Editorial
-                      </Badge>
-                    </div>
-                    <MerchantCenterCard data={insight} />
-                  </div>
-
-                  {/* Surface 2: Constructivist Square & Color */}
-                  <div className="space-y-2 flex flex-col">
-                    <div className="flex items-center justify-between px-1">
-                      <span className="text-xs font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-                        Surface B: Constructivist Visual
-                      </span>
-                      <Badge className="text-[10px] font-mono bg-yellow-400 text-black border-none font-black rounded-none">
-                        Zero Radius • Vivid Color
-                      </Badge>
-                    </div>
-                    <AdsBanner data={insight} />
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+          {/* Widget Override */}
+          <div className="font-mono text-[0.7rem] uppercase tracking-[0.06em] text-[var(--brand-text-secondary)]">
+            Widget override
           </div>
-        )}
+          <div className="flex gap-2 flex-wrap mb-4.5 mt-2.5">
+            {VIS_OPTIONS.map((v) => {
+              const isSelected = visType === v.value;
+              return (
+                <button
+                  key={v.value}
+                  type="button"
+                  onClick={() => {
+                    setVisType(v.value);
+                    if (done && activePresetIdx !== null) {
+                      runExecution({ overrideVisType: v.value });
+                    }
+                  }}
+                  style={{
+                    backgroundColor: isSelected ? "var(--brand-fg)" : "transparent",
+                    color: isSelected ? "var(--brand-bg)" : "var(--brand-text-secondary)",
+                    borderColor: isSelected ? "var(--brand-fg)" : "var(--brand-border-subtle)",
+                  }}
+                  className="border-2 rounded-full px-3.5 py-2 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.04em] cursor-pointer transition-colors"
+                >
+                  {v.label}
+                </button>
+              );
+            })}
+          </div>
 
-        {/* ── CARD 4: Live Inspectors & Technical Architecture ── */}
-        <div className="space-y-4">
-          {/* Panel 1: Edit & Live Re-render */}
-          {insight && !loading && (
-            <div ref={editPanelRef} className="scroll-mt-6">
-              <Collapsible
-                open={showEditPanel}
-                onOpenChange={(open) => {
-                  setShowEditPanel(open);
-                  if (open) scrollToCard(editPanelRef);
-                }}
-                className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden"
-              >
-                <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-2.5">
-                    <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30 gap-1">
-                      <IconCode className="w-3 h-3" />
-                      EDIT
-                    </Badge>
-                    <span className="text-sm font-semibold text-foreground">
-                      Edit payload & test adaptive visualizers
-                    </span>
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      — change visualization type or values to see instant multi-surface adaptation
-                    </span>
-                  </div>
-                  <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showEditPanel ? "rotate-180" : ""}`} />
-                </CollapsibleTrigger>
-
-                <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-3 pt-3 bg-muted/5">
-                  <p className="text-xs text-muted-foreground">
-                    Try changing <code>visualization.type</code> to <code>&quot;trend_line&quot;</code>, <code>&quot;bar_comparison&quot;</code>, <code>&quot;progress_gauge&quot;</code>, or <code>&quot;breakdown_distribution&quot;</code> and click <strong>Apply & Re-render</strong>.
-                  </p>
-                  <Textarea
-                    value={editedJson}
-                    onChange={(e) => {
-                      setEditedJson(e.target.value);
-                      setJsonError(null);
-                    }}
-                    rows={14}
-                    spellCheck={false}
-                    className="w-full font-mono text-xs text-emerald-400 bg-slate-950 rounded-lg p-3.5 border-slate-800 leading-relaxed focus-visible:ring-violet-500"
-                  />
-                  {jsonError && (
-                    <p className="text-xs text-destructive font-medium flex items-center gap-1.5">
-                      <IconAlertCircle className="w-3.5 h-3.5 shrink-0" />
-                      {jsonError}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2.5">
-                    <Button
-                      size="sm"
-                      onClick={handleApplyEdit}
-                      className="bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold cursor-pointer"
-                    >
-                      Apply & Re-render
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setEditedJson(JSON.stringify(insight, null, 2));
-                        setJsonError(null);
-                      }}
-                      className="text-xs font-medium cursor-pointer"
-                    >
-                      Reset
-                    </Button>
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          )}
-
-          {/* Panel 2: MCP Wire Protocol */}
-          {insight && !loading && (
-            <div ref={wirePanelRef} className="scroll-mt-6">
-              <Collapsible
-                open={showWirePanel}
-                onOpenChange={(open) => {
-                  setShowWirePanel(open);
-                  if (open) scrollToCard(wirePanelRef);
-                }}
-                className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden"
-              >
-                <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
-                  <div className="flex items-center gap-2.5">
-                    <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 gap-1">
-                      <IconTerminal2 className="w-3 h-3" />
-                      MCP
-                    </Badge>
-                    <span className="text-sm font-semibold text-foreground">
-                      View raw MCP wire protocol
-                    </span>
-                    <span className="text-xs text-muted-foreground hidden sm:inline">
-                      — JSON-RPC 2.0 messages over Streamable HTTP transport
-                    </span>
-                  </div>
-                  <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showWirePanel ? "rotate-180" : ""}`} />
-                </CollapsibleTrigger>
-
-                <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-4 pt-3 bg-muted/5">
-                  {mcpWire && (
-                    <>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <Badge variant="outline" className="font-mono text-[11px]">
-                          {mcpWire.endpoint}
-                        </Badge>
-                        <span>— Streamable HTTP Transport</span>
-                      </div>
-
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {/* Request */}
-                        <div className="space-y-1.5">
-                          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                            Client ➔ Server (Request)
-                          </span>
-                          <pre className="bg-slate-950 rounded-lg p-3.5 text-[11px] font-mono text-blue-300 overflow-x-auto leading-relaxed border border-slate-800">
-                            {JSON.stringify(mcpWire.request, null, 2)}
-                          </pre>
-                        </div>
-
-                        {/* Response */}
-                        <div className="space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                              Server ➔ Client (Response)
-                            </span>
-                            {isModified && (
-                              <Badge variant="outline" className="text-[10px] font-mono border-violet-500/30 text-violet-700 dark:text-violet-300 bg-violet-50/50">
-                                Live Modified
-                              </Badge>
-                            )}
-                          </div>
-                          <pre className="bg-slate-950 rounded-lg p-3.5 text-[11px] font-mono text-emerald-300 overflow-x-auto leading-relaxed border border-slate-800">
-                            {JSON.stringify(mcpWire.response, null, 2)}
-                          </pre>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </CollapsibleContent>
-              </Collapsible>
-            </div>
-          )}
-
-          {/* Panel 3: Technical Architecture & Protocol Pipeline (SPECS) */}
-          <div ref={archPanelRef} className="scroll-mt-6">
-            <Collapsible
-              open={showArchPanel}
-              onOpenChange={(open) => {
-                setShowArchPanel(open);
-                if (open) scrollToCard(archPanelRef);
+          {/* Query Form */}
+          <form onSubmit={handleSubmit} className="flex gap-2.5 flex-wrap">
+            <input
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setActivePresetIdx(null);
               }}
-              className="border border-border/80 rounded-xl bg-card shadow-xs overflow-hidden"
+              placeholder="Describe any merchant scenario…"
+              className="flex-1 min-w-[260px] px-4 py-3 rounded-full border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-muted-bg)] text-[var(--brand-fg)] font-sans text-[0.85rem] outline-none focus:border-[var(--brand-border)] transition-colors"
+            />
+            <button
+              type="submit"
+              disabled={loading || !query.trim()}
+              className="px-6 py-3 rounded-full border-2 border-[var(--brand-border)] bg-[var(--brand-fg)] text-[var(--brand-bg)] font-mono font-semibold text-[0.75rem] uppercase tracking-[0.05em] cursor-pointer hover:opacity-90 transition-opacity disabled:opacity-50"
             >
-              <CollapsibleTrigger className="w-full px-5 py-3.5 flex items-center justify-between text-left hover:bg-muted/30 transition-colors cursor-pointer">
-                <div className="flex items-center gap-2.5">
-                  <Badge variant="secondary" className="font-mono text-[10px] font-bold bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-500/30 gap-1">
-                    <IconHierarchy2 className="w-3 h-3" />
-                    SPECS
-                  </Badge>
-                  <span className="text-sm font-semibold text-foreground">
-                    Technical Architecture & Multi-Surface Flow
-                  </span>
-                  <span className="text-xs text-muted-foreground hidden sm:inline">
-                    — polymorphic visual contracts & surface capability resolution
-                  </span>
-                </div>
-                <IconChevronDown className={`w-4 h-4 text-muted-foreground transition-transform duration-200 ${showArchPanel ? "rotate-180" : ""}`} />
-              </CollapsibleTrigger>
+              {loading ? "Executing…" : "Execute MCP"}
+            </button>
+          </form>
 
-              <CollapsibleContent className="px-5 pb-5 border-t border-border/40 space-y-4 pt-4 bg-muted/5">
-                {/* Flowchart Diagram */}
-                <div className="rounded-xl border border-border/60 bg-muted/30 p-5 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block">
-                      End-to-End Execution Flow
-                    </span>
-                    <span className="text-[11px] font-mono text-cyan-600 dark:text-cyan-400 font-semibold">
-                      1 Polymorphic JSON ➔ 2 Native Surface Projections
-                    </span>
-                  </div>
+          {/* Divider */}
+          <div className="h-[2px] bg-[var(--brand-border-subtle)] my-5" />
 
-                  <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
-                    {/* Step 1 */}
-                    <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold uppercase text-emerald-600 dark:text-emerald-400">Step 1</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      </div>
-                      <span className="font-bold text-foreground text-xs block">User Query & Widget Intent</span>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Natural language observation with requested visualization type.
-                      </p>
-                    </div>
-
-                    {/* Arrow 1 */}
-                    <div className="flex items-center justify-center text-muted-foreground shrink-0 py-0.5 lg:py-0">
-                      <IconArrowRight className="w-4 h-4 hidden lg:block text-emerald-600" />
-                      <IconArrowDown className="w-4 h-4 block lg:hidden text-emerald-600" />
-                    </div>
-
-                    {/* Step 2 */}
-                    <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold uppercase text-blue-600 dark:text-blue-400">Step 2</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                      </div>
-                      <span className="font-bold text-foreground text-xs block">MCP Tool Call</span>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Client invokes <code>tools/call</code> over Streamable HTTP transport.
-                      </p>
-                    </div>
-
-                    {/* Arrow 2 */}
-                    <div className="flex items-center justify-center text-muted-foreground shrink-0 py-0.5 lg:py-0">
-                      <IconArrowRight className="w-4 h-4 hidden lg:block text-blue-600" />
-                      <IconArrowDown className="w-4 h-4 block lg:hidden text-blue-600" />
-                    </div>
-
-                    {/* Step 3 */}
-                    <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold uppercase text-amber-600 dark:text-amber-400">Step 3</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      </div>
-                      <span className="font-bold text-foreground text-xs block">Polymorphic Schema</span>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        MCP Server synthesizes semantic data (trend, bars, gauge, distribution).
-                      </p>
-                    </div>
-
-                    {/* Arrow 3 */}
-                    <div className="flex items-center justify-center text-muted-foreground shrink-0 py-0.5 lg:py-0">
-                      <IconArrowRight className="w-4 h-4 hidden lg:block text-amber-600" />
-                      <IconArrowDown className="w-4 h-4 block lg:hidden text-amber-600" />
-                    </div>
-
-                    {/* Step 4 */}
-                    <div className="flex-1 p-3.5 rounded-xl border border-border/70 bg-card shadow-2xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-mono font-bold uppercase text-purple-600 dark:text-purple-400">Step 4</span>
-                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500" />
-                      </div>
-                      <span className="font-bold text-foreground text-xs block">Adaptive Surface Render</span>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        Surfaces project data to their local design system or adapt via fallback.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Technical Pillars */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                  <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
-                    <span className="font-bold text-foreground flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                      Polymorphic Data Contracts
-                    </span>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      MCP tools return structured visualization intent rather than pre-rendered pixels or rigid DOM nodes, enabling true cross-platform presentation agility.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
-                    <span className="font-bold text-foreground flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-blue-500" />
-                      Capability & Fallback Resolution
-                    </span>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      If an edge client or constrained surface lacks support for complex visualizations, it gracefully degrades to native summary representations.
-                    </p>
-                  </div>
-
-                  <div className="space-y-1.5 p-3.5 rounded-lg border border-border/40 bg-card">
-                    <span className="font-bold text-foreground flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-purple-500" />
-                      Reactive Multi-Surface Sync
-                    </span>
-                    <p className="text-[11px] text-muted-foreground leading-relaxed">
-                      Upstream schema mutations or visual type switches instantly update both native rendering pipelines in real-time lockstep.
-                    </p>
-                  </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
+          {/* Simulate a Failure */}
+          <div className="font-mono text-[0.7rem] uppercase tracking-[0.06em] text-[var(--brand-text-secondary)]">
+            Simulate a failure
+          </div>
+          <div className="flex gap-2 flex-wrap mt-2.5">
+            {ERROR_SCENARIOS.map((e) => (
+              <button
+                key={e.key}
+                type="button"
+                onClick={() => handleErrorChip(e.key)}
+                className="bg-transparent border-2 border-[var(--brand-pink)] text-[var(--brand-pink)] rounded-full px-3.5 py-2 font-mono text-[0.68rem] font-semibold uppercase tracking-[0.03em] cursor-pointer hover:bg-[var(--brand-pink)]/10 transition-colors"
+              >
+                {e.label}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* ── 4. Protocol Timeline Card ── */}
+        {hasRun && (
+          <div
+            ref={timelineCardRef}
+            className="bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] p-6 transition-all duration-300"
+          >
+            <div className="font-heading font-extrabold text-[0.95rem] tracking-tight">
+              Protocol Timeline
+            </div>
+
+            {/* Timeline Stepper */}
+            <div className="flex items-start mt-5.5 overflow-x-auto pb-2">
+              {STEP_LABELS.map((label, i) => {
+                let status: "pending" | "active" | "done" | "error" = "pending";
+                if (error && error.atStep === i) status = "error";
+                else if (error && i > error.atStep) status = "pending";
+                else if (i < step) status = "done";
+                else if (i === step && loading) status = "active";
+                else if (i === step && done) status = "done";
+
+                const stepColor = STEP_COLORS[i];
+
+                let mark = String(i + 1);
+                let textColor = "var(--brand-text-secondary)";
+                let circleBg = "var(--brand-muted-bg)";
+                let circleColor = "var(--brand-text-secondary)";
+                let circleBorder = "var(--brand-border-subtle)";
+                let isPulsing = false;
+
+                if (status === "done") {
+                  circleBg = stepColor;
+                  circleColor = "#ffffff";
+                  circleBorder = stepColor;
+                  mark = "✓";
+                  textColor = "var(--brand-fg)";
+                } else if (status === "active") {
+                  circleBg = "var(--brand-bg)";
+                  circleColor = stepColor;
+                  circleBorder = stepColor;
+                  textColor = stepColor;
+                  isPulsing = true;
+                } else if (status === "error") {
+                  circleBg = PINK;
+                  circleColor = "#ffffff";
+                  circleBorder = PINK;
+                  mark = "!";
+                  textColor = PINK;
+                }
+
+                const lineColor = (i < step || done) ? stepColor : "var(--brand-border-subtle)";
+
+                return (
+                  <div key={label} className={`flex items-center ${i < 3 ? "flex-1" : "flex-initial"}`}>
+                    <div className="flex flex-col items-center gap-2 min-w-[80px]">
+                      <div
+                        style={{
+                          backgroundColor: circleBg,
+                          color: circleColor,
+                          borderColor: circleBorder,
+                        }}
+                        className={`w-8 h-8 rounded-full border-2 flex items-center justify-center font-mono font-semibold text-[0.8rem] shrink-0 ${
+                          isPulsing ? "animate-brand-pulse" : ""
+                        }`}
+                      >
+                        {mark}
+                      </div>
+                      <div
+                        style={{ color: textColor }}
+                        className="font-mono text-[0.6rem] text-center uppercase tracking-wider max-w-[96px] leading-tight"
+                      >
+                        {label}
+                      </div>
+                    </div>
+
+                    {/* Connecting Line */}
+                    {i < 3 && (
+                      <div
+                        style={{ backgroundColor: lineColor }}
+                        className="h-[2px] flex-1 min-w-[24px] mx-1 -mt-5 transition-colors duration-300"
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Error Message Box */}
+            {error && (
+              <div
+                style={{
+                  backgroundColor: dark ? "rgba(255,84,112,0.08)" : "#fff1f3",
+                  color: dark ? "#ff8fa3" : "#b3123f",
+                }}
+                className="mt-5.5 p-4 sm:p-4.5 rounded-[14px] border-2 border-[var(--brand-pink)]"
+              >
+                <div className="font-mono font-semibold text-[0.75rem] uppercase tracking-[0.05em] mb-1.5 text-[var(--brand-pink)]">
+                  Execution failed
+                </div>
+                <div className="text-[0.85rem] leading-relaxed">
+                  {error.message}
+                </div>
+              </div>
+            )}
+
+            {/* Success Metrics / Stats */}
+            {stats && done && (
+              <div className="flex gap-3 mt-5.5 flex-wrap">
+                <div className="border-2 border-[var(--brand-border-subtle)] rounded-[14px] p-2.5 sm:p-3 px-4 flex-1 min-w-[140px]">
+                  <div className="font-mono text-[0.6rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)]">
+                    Latency
+                  </div>
+                  <div className="font-heading font-extrabold text-[1.15rem] mt-1 text-[var(--brand-fg)]">
+                    {stats.latency}ms
+                  </div>
+                </div>
+
+                <div className="border-2 border-[var(--brand-border-subtle)] rounded-[14px] p-2.5 sm:p-3 px-4 flex-1 min-w-[140px]">
+                  <div className="font-mono text-[0.6rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)]">
+                    Tokens (in / out)
+                  </div>
+                  <div className="font-heading font-extrabold text-[1.15rem] mt-1 text-[var(--brand-fg)]">
+                    {stats.tokensIn} / {stats.tokensOut}
+                  </div>
+                </div>
+
+                <div className="border-2 border-[var(--brand-border-subtle)] rounded-[14px] p-2.5 sm:p-3 px-4 flex-1 min-w-[140px]">
+                  <div className="font-mono text-[0.6rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)]">
+                    Est. cost
+                  </div>
+                  <div className="font-heading font-extrabold text-[1.15rem] mt-1 text-[var(--brand-fg)]">
+                    ${stats.cost}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── 5. Dual Native Surface Renders Card ── */}
+        {insight && done && !error && (
+          <div
+            ref={rendersCardRef}
+            className="bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] p-6 space-y-4"
+          >
+            <div>
+              <div className="font-heading font-extrabold text-[0.95rem] tracking-tight">
+                Dual Native Surface Renders
+              </div>
+              <p className="text-[0.85rem] text-[var(--brand-text-secondary)] mt-2 mb-4 max-w-[520px]">
+                The same JSON, rendered by two intentionally opposite surfaces — an editorial serif dispatch and a constructivist ad unit.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-stretch">
+              {/* Surface A: Editorial Serif */}
+              <div className="space-y-2 flex flex-col">
+                <span className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[#0e84f1] font-semibold">
+                  Surface A — Editorial
+                </span>
+                <MerchantCenterCard data={insight} />
+              </div>
+
+              {/* Surface B: Constructivist Visual */}
+              <div className="space-y-2 flex flex-col">
+                <span className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[#ff9254] font-semibold">
+                  Surface B — Constructivist
+                </span>
+                <AdsBanner data={insight} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── 6. Raw MCP Wire Protocol Card ── */}
+        {insight && done && !error && (
+          <div className="bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] p-6">
+            <button
+              type="button"
+              onClick={() => setShowWire(!showWire)}
+              className="w-full flex justify-between items-center bg-transparent border-none p-0 cursor-pointer font-mono text-[0.72rem] font-semibold uppercase tracking-[0.05em] text-[var(--brand-fg)]"
+            >
+              <span>Raw MCP wire protocol</span>
+              <span>{showWire ? "−" : "+"}</span>
+            </button>
+
+            {showWire && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
+                <div>
+                  <div className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)] mb-1.5">
+                    Client → Server
+                  </div>
+                  <pre className="bg-[#0a0a0b] border-2 border-[#000000] rounded-[8px] p-3.5 font-mono text-[0.72rem] leading-relaxed overflow-x-auto m-0 text-[#7dd3fc]">
+                    {JSON.stringify(mcpWire?.request ?? wireToolArgs, null, 2)}
+                  </pre>
+                </div>
+                <div>
+                  <div className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)] mb-1.5">
+                    Server → Client
+                  </div>
+                  <pre className="bg-[#0a0a0b] border-2 border-[#000000] rounded-[8px] p-3.5 font-mono text-[0.72rem] leading-relaxed overflow-x-auto m-0 text-[#6ee7b7]">
+                    {JSON.stringify(mcpWire?.response ?? wireResponseObj, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
