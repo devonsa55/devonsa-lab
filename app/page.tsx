@@ -4,6 +4,15 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import type { MerchantInsight, VisualizationType } from "@/types/insight";
 import { MerchantCenterCard } from "@/components/MerchantCenterCard";
 import { AdsBanner } from "@/components/AdsBanner";
+import {
+  IconCode,
+  IconTerminal2,
+  IconHierarchy2,
+  IconChevronDown,
+  IconAlertCircle,
+  IconArrowRight,
+  IconArrowDown,
+} from "@tabler/icons-react";
 
 const AQUA = "#54cea1";
 const CYAN = "#0e84f1";
@@ -125,7 +134,16 @@ export default function DemoPage() {
   const [step, setStep] = useState(-1);
   const [error, setError] = useState<{ message: string; atStep: number } | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
-  const [showWire, setShowWire] = useState(false);
+
+  // Inspector Panels states (EDIT, MCP, SPECS)
+  const [showEditPanel, setShowEditPanel] = useState(false);
+  const [showWirePanel, setShowWirePanel] = useState(false);
+  const [showArchPanel, setShowArchPanel] = useState(false);
+
+  // Editable JSON state
+  const [editedJson, setEditedJson] = useState("");
+  const [jsonError, setJsonError] = useState<string | null>(null);
+  const [isModified, setIsModified] = useState(false);
 
   // Real MCP Data
   const [insight, setInsight] = useState<MerchantInsight | null>(null);
@@ -134,6 +152,9 @@ export default function DemoPage() {
   const timersRef = useRef<NodeJS.Timeout[]>([]);
   const timelineCardRef = useRef<HTMLDivElement>(null);
   const rendersCardRef = useRef<HTMLDivElement>(null);
+  const editPanelRef = useRef<HTMLDivElement>(null);
+  const wirePanelRef = useRef<HTMLDivElement>(null);
+  const archPanelRef = useRef<HTMLDivElement>(null);
 
   // Sync dark class on document element
   useEffect(() => {
@@ -152,6 +173,15 @@ export default function DemoPage() {
   useEffect(() => {
     return () => clearTimers();
   }, [clearTimers]);
+
+  const scrollToRef = (ref: React.RefObject<HTMLDivElement | null>, offset = 28) => {
+    if (typeof window === "undefined") return;
+    setTimeout(() => {
+      if (!ref.current) return;
+      const targetY = window.pageYOffset + ref.current.getBoundingClientRect().top - offset;
+      window.scrollTo({ top: Math.max(0, targetY), behavior: "smooth" });
+    }, 120);
+  };
 
   const computeStats = (presetIdx: number | null, actualLatency?: number): StatsData => {
     const idx = presetIdx ?? 0;
@@ -185,15 +215,11 @@ export default function DemoPage() {
     setStats(null);
     setStep(0);
     setActivePresetIdx(pIdx ?? null);
-    setShowWire(false);
+    setIsModified(false);
+    setJsonError(null);
 
     // Scroll smoothly to timeline
-    setTimeout(() => {
-      if (timelineCardRef.current) {
-        const top = window.pageYOffset + timelineCardRef.current.getBoundingClientRect().top - 28;
-        window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-      }
-    }, 100);
+    scrollToRef(timelineCardRef);
 
     const startTime = Date.now();
 
@@ -239,12 +265,14 @@ export default function DemoPage() {
           const apiResult = await fetchPromise;
           const actualDuration = Date.now() - startTime;
 
+          let finalInsight: MerchantInsight;
           if (apiResult?.insight) {
+            finalInsight = apiResult.insight;
             setInsight(apiResult.insight);
             setMcpWire(apiResult._mcp);
           } else {
             // High fidelity fallback matching the preset
-            const fallbackInsight: MerchantInsight = {
+            finalInsight = {
               headline: activePreset.label,
               detail: `Analyzed ${activePreset.category} performance across merchant catalog.`,
               metric: {
@@ -260,20 +288,16 @@ export default function DemoPage() {
               },
               action: "Review Adjustment",
             };
-            setInsight(fallbackInsight);
+            setInsight(finalInsight);
           }
 
+          setEditedJson(JSON.stringify(finalInsight, null, 2));
           setLoading(false);
           setDone(true);
           setStep(3);
           setStats(computeStats(pIdx, actualDuration));
 
-          setTimeout(() => {
-            if (rendersCardRef.current) {
-              const top = window.pageYOffset + rendersCardRef.current.getBoundingClientRect().top - 28;
-              window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-            }
-          }, 150);
+          scrollToRef(rendersCardRef);
         }
       }, 430 * i);
       timersRef.current.push(t);
@@ -297,7 +321,46 @@ export default function DemoPage() {
     runExecution({ errorKey });
   };
 
-  // Wire Protocol content
+  const handleApplyEdit = () => {
+    setJsonError(null);
+    try {
+      const parsed = JSON.parse(editedJson);
+      if (
+        typeof parsed.headline !== "string" ||
+        typeof parsed.detail !== "string" ||
+        typeof parsed.action !== "string" ||
+        !parsed.metric
+      ) {
+        setJsonError("JSON must include at least: headline, detail, metric {label, value, trend}, action");
+        return;
+      }
+      if (!["up", "down", "flat"].includes(parsed.metric.trend)) {
+        setJsonError('metric.trend must be "up", "down", or "flat"');
+        return;
+      }
+      const validatedInsight = parsed as MerchantInsight;
+      setInsight(validatedInsight);
+      setIsModified(true);
+      scrollToRef(rendersCardRef);
+
+      if (mcpWire) {
+        setMcpWire({
+          ...mcpWire,
+          response: {
+            jsonrpc: "2.0",
+            id: 1,
+            result: {
+              content: [{ type: "text", text: JSON.stringify(validatedInsight) }],
+              structuredContent: validatedInsight,
+            },
+          },
+        });
+      }
+    } catch {
+      setJsonError("Invalid JSON — please check syntax and try again.");
+    }
+  };
+
   const activePreset = activePresetIdx !== null ? PRESETS[activePresetIdx] : PRESETS[0];
   const wireToolArgs = {
     merchant_id: "merchant_8492",
@@ -632,40 +695,314 @@ export default function DemoPage() {
           </div>
         )}
 
-        {/* ── 6. Raw MCP Wire Protocol Card ── */}
-        {insight && done && !error && (
-          <div className="bg-[var(--brand-bg)] border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] p-6">
+        {/* ── 6. Bottom Collapsible Panels (Full-header Touch Target) ── */}
+        <div className="space-y-4">
+          {/* Panel 1: EDIT Payload & Live Re-render */}
+          {insight && done && !error && (
+            <div
+              ref={editPanelRef}
+              className="border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] bg-[var(--brand-bg)] overflow-hidden"
+            >
+              {/* Entire header row is clickable */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showEditPanel;
+                  setShowEditPanel(next);
+                  if (next) scrollToRef(editPanelRef);
+                }}
+                className="w-full p-4 sm:p-5 flex items-center justify-between text-left bg-[var(--brand-bg)] hover:bg-[var(--brand-muted-bg)] transition-colors cursor-pointer border-none"
+              >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[0.68rem] font-bold uppercase tracking-wider bg-[#9461fb]/15 text-[#9461fb] border border-[#9461fb]/30">
+                    <IconCode className="w-3.5 h-3.5" />
+                    EDIT
+                  </span>
+                  <span className="font-heading font-bold text-sm text-[var(--brand-fg)]">
+                    Edit payload &amp; test adaptive visualizers
+                  </span>
+                  <span className="text-xs text-[var(--brand-text-secondary)] hidden md:inline">
+                    — change visualization type or values to see instant multi-surface adaptation
+                  </span>
+                </div>
+                <IconChevronDown
+                  className={`w-4 h-4 text-[var(--brand-text-secondary)] transition-transform duration-200 shrink-0 ml-2 ${
+                    showEditPanel ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {showEditPanel && (
+                <div className="p-5 border-t-2 border-[var(--brand-border-subtle)] space-y-3 bg-[var(--brand-muted-bg)]/30">
+                  <p className="text-xs text-[var(--brand-text-secondary)]">
+                    Try changing <code className="font-mono font-bold">visualization.type</code> to <code className="font-mono">&quot;trend_line&quot;</code>, <code className="font-mono">&quot;bar_comparison&quot;</code>, <code className="font-mono">&quot;progress_gauge&quot;</code>, or <code className="font-mono">&quot;breakdown_distribution&quot;</code> and click <strong>Apply &amp; Re-render</strong>.
+                  </p>
+                  <textarea
+                    value={editedJson}
+                    onChange={(e) => {
+                      setEditedJson(e.target.value);
+                      setJsonError(null);
+                    }}
+                    rows={14}
+                    spellCheck={false}
+                    className="w-full font-mono text-xs text-[#6ee7b7] bg-[#0a0a0b] rounded-[10px] p-4 border-2 border-[#000000] leading-relaxed outline-none focus:border-[#9461fb]"
+                  />
+                  {jsonError && (
+                    <p className="text-xs text-[var(--brand-pink)] font-medium flex items-center gap-1.5">
+                      <IconAlertCircle className="w-4 h-4 shrink-0" />
+                      {jsonError}
+                    </p>
+                  )}
+                  <div className="flex items-center gap-2.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={handleApplyEdit}
+                      className="px-5 py-2 rounded-full border-2 border-[var(--brand-border)] bg-[#9461fb] text-white font-mono font-semibold text-xs uppercase tracking-wider cursor-pointer hover:opacity-90 shadow-[2px_2px_0_var(--brand-shadow-color)]"
+                    >
+                      Apply &amp; Re-render
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditedJson(JSON.stringify(insight, null, 2));
+                        setJsonError(null);
+                      }}
+                      className="px-4 py-2 rounded-full border-2 border-[var(--brand-border-subtle)] bg-transparent text-[var(--brand-fg)] font-mono text-xs font-semibold uppercase tracking-wider cursor-pointer hover:bg-[var(--brand-muted-bg)]"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Panel 2: MCP Wire Protocol */}
+          {insight && done && !error && (
+            <div
+              ref={wirePanelRef}
+              className="border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] bg-[var(--brand-bg)] overflow-hidden"
+            >
+              {/* Entire header row is clickable */}
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !showWirePanel;
+                  setShowWirePanel(next);
+                  if (next) scrollToRef(wirePanelRef);
+                }}
+                className="w-full p-4 sm:p-5 flex items-center justify-between text-left bg-[var(--brand-bg)] hover:bg-[var(--brand-muted-bg)] transition-colors cursor-pointer border-none"
+              >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[0.68rem] font-bold uppercase tracking-wider bg-[#ff9254]/15 text-[#ff9254] border border-[#ff9254]/30">
+                    <IconTerminal2 className="w-3.5 h-3.5" />
+                    MCP
+                  </span>
+                  <span className="font-heading font-bold text-sm text-[var(--brand-fg)]">
+                    View raw MCP wire protocol
+                  </span>
+                  <span className="text-xs text-[var(--brand-text-secondary)] hidden md:inline">
+                    — JSON-RPC 2.0 messages over Streamable HTTP transport
+                  </span>
+                </div>
+                <IconChevronDown
+                  className={`w-4 h-4 text-[var(--brand-text-secondary)] transition-transform duration-200 shrink-0 ml-2 ${
+                    showWirePanel ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {showWirePanel && (
+                <div className="p-5 border-t-2 border-[var(--brand-border-subtle)] space-y-4 bg-[var(--brand-muted-bg)]/30">
+                  <div className="flex items-center gap-2 text-xs font-mono text-[var(--brand-text-secondary)]">
+                    <span className="px-2.5 py-1 rounded-full border border-[var(--brand-border-subtle)] bg-[var(--brand-bg)]">
+                      /api/mcp
+                    </span>
+                    <span>— Streamable HTTP Transport</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Request */}
+                    <div className="space-y-1.5">
+                      <span className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)] font-semibold block">
+                        Client ➔ Server (Request)
+                      </span>
+                      <pre className="bg-[#0a0a0b] border-2 border-[#000000] rounded-[8px] p-3.5 font-mono text-[0.72rem] leading-relaxed overflow-x-auto m-0 text-[#7dd3fc]">
+                        {JSON.stringify(mcpWire?.request ?? wireToolArgs, null, 2)}
+                      </pre>
+                    </div>
+
+                    {/* Response */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)] font-semibold">
+                          Server ➔ Client (Response)
+                        </span>
+                        {isModified && (
+                          <span className="font-mono text-[0.62rem] px-2 py-0.5 rounded border border-[#9461fb]/40 bg-[#9461fb]/15 text-[#9461fb] uppercase">
+                            Live Modified
+                          </span>
+                        )}
+                      </div>
+                      <pre className="bg-[#0a0a0b] border-2 border-[#000000] rounded-[8px] p-3.5 font-mono text-[0.72rem] leading-relaxed overflow-x-auto m-0 text-[#6ee7b7]">
+                        {JSON.stringify(mcpWire?.response ?? wireResponseObj, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Panel 3: SPECS Technical Architecture */}
+          <div
+            ref={archPanelRef}
+            className="border-2 border-[var(--brand-border)] rounded-[20px] shadow-[4px_4px_0_var(--brand-shadow-color)] bg-[var(--brand-bg)] overflow-hidden"
+          >
+            {/* Entire header row is clickable */}
             <button
               type="button"
-              onClick={() => setShowWire(!showWire)}
-              className="w-full flex justify-between items-center bg-transparent border-none p-0 cursor-pointer font-mono text-[0.72rem] font-semibold uppercase tracking-[0.05em] text-[var(--brand-fg)]"
+              onClick={() => {
+                const next = !showArchPanel;
+                setShowArchPanel(next);
+                if (next) scrollToRef(archPanelRef);
+              }}
+              className="w-full p-4 sm:p-5 flex items-center justify-between text-left bg-[var(--brand-bg)] hover:bg-[var(--brand-muted-bg)] transition-colors cursor-pointer border-none"
             >
-              <span>Raw MCP wire protocol</span>
-              <span>{showWire ? "−" : "+"}</span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[0.68rem] font-bold uppercase tracking-wider bg-[#0e84f1]/15 text-[#0e84f1] border border-[#0e84f1]/30">
+                  <IconHierarchy2 className="w-3.5 h-3.5" />
+                  SPECS
+                </span>
+                <span className="font-heading font-bold text-sm text-[var(--brand-fg)]">
+                  Technical Architecture &amp; Multi-Surface Flow
+                </span>
+                <span className="text-xs text-[var(--brand-text-secondary)] hidden md:inline">
+                  — polymorphic visual contracts &amp; surface capability resolution
+                </span>
+              </div>
+              <IconChevronDown
+                className={`w-4 h-4 text-[var(--brand-text-secondary)] transition-transform duration-200 shrink-0 ml-2 ${
+                  showArchPanel ? "rotate-180" : ""
+                }`}
+              />
             </button>
 
-            {showWire && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 mt-4">
-                <div>
-                  <div className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)] mb-1.5">
-                    Client → Server
+            {showArchPanel && (
+              <div className="p-5 border-t-2 border-[var(--brand-border-subtle)] space-y-4 bg-[var(--brand-muted-bg)]/30">
+                {/* Flowchart Diagram */}
+                <div className="rounded-[14px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)] p-4 sm:p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-[0.65rem] font-bold text-[var(--brand-text-secondary)] uppercase tracking-wider block">
+                      End-to-End Execution Flow
+                    </span>
+                    <span className="font-mono text-[0.65rem] text-[#0e84f1] font-semibold">
+                      1 Polymorphic JSON ➔ 2 Native Surface Projections
+                    </span>
                   </div>
-                  <pre className="bg-[#0a0a0b] border-2 border-[#000000] rounded-[8px] p-3.5 font-mono text-[0.72rem] leading-relaxed overflow-x-auto m-0 text-[#7dd3fc]">
-                    {JSON.stringify(mcpWire?.request ?? wireToolArgs, null, 2)}
-                  </pre>
+
+                  <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-2.5">
+                    {/* Step 1 */}
+                    <div className="flex-1 p-3.5 rounded-[12px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[0.62rem] font-bold uppercase text-[var(--brand-aqua)]">Step 1</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--brand-aqua)]" />
+                      </div>
+                      <span className="font-heading font-bold text-[var(--brand-fg)] text-xs block">User Query &amp; Intent</span>
+                      <p className="text-[0.7rem] text-[var(--brand-text-secondary)] leading-relaxed">
+                        Natural language scenario with requested visualization type.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center text-[var(--brand-text-secondary)] shrink-0 py-0.5 lg:py-0">
+                      <IconArrowRight className="w-4 h-4 hidden lg:block text-[var(--brand-aqua)]" />
+                      <IconArrowDown className="w-4 h-4 block lg:hidden text-[var(--brand-aqua)]" />
+                    </div>
+
+                    {/* Step 2 */}
+                    <div className="flex-1 p-3.5 rounded-[12px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[0.62rem] font-bold uppercase text-[#0e84f1]">Step 2</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#0e84f1]" />
+                      </div>
+                      <span className="font-heading font-bold text-[var(--brand-fg)] text-xs block">MCP Tool Call</span>
+                      <p className="text-[0.7rem] text-[var(--brand-text-secondary)] leading-relaxed">
+                        Client invokes <code className="font-mono">tools/call</code> over Streamable HTTP transport.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center text-[var(--brand-text-secondary)] shrink-0 py-0.5 lg:py-0">
+                      <IconArrowRight className="w-4 h-4 hidden lg:block text-[#0e84f1]" />
+                      <IconArrowDown className="w-4 h-4 block lg:hidden text-[#0e84f1]" />
+                    </div>
+
+                    {/* Step 3 */}
+                    <div className="flex-1 p-3.5 rounded-[12px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[0.62rem] font-bold uppercase text-[#ff9254]">Step 3</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#ff9254]" />
+                      </div>
+                      <span className="font-heading font-bold text-[var(--brand-fg)] text-xs block">Polymorphic Schema</span>
+                      <p className="text-[0.7rem] text-[var(--brand-text-secondary)] leading-relaxed">
+                        MCP Server synthesizes semantic data (trend, bars, gauge, distribution).
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-center text-[var(--brand-text-secondary)] shrink-0 py-0.5 lg:py-0">
+                      <IconArrowRight className="w-4 h-4 hidden lg:block text-[#ff9254]" />
+                      <IconArrowDown className="w-4 h-4 block lg:hidden text-[#ff9254]" />
+                    </div>
+
+                    {/* Step 4 */}
+                    <div className="flex-1 p-3.5 rounded-[12px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-[0.62rem] font-bold uppercase text-[#9461fb]">Step 4</span>
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#9461fb]" />
+                      </div>
+                      <span className="font-heading font-bold text-[var(--brand-fg)] text-xs block">Adaptive Render</span>
+                      <p className="text-[0.7rem] text-[var(--brand-text-secondary)] leading-relaxed">
+                        Surfaces project data to their local design system or adapt via fallback.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div className="font-mono text-[0.62rem] uppercase tracking-[0.05em] text-[var(--brand-text-secondary)] mb-1.5">
-                    Server → Client
+
+                {/* Technical Pillars */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+                  <div className="space-y-1.5 p-3.5 rounded-[12px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)]">
+                    <span className="font-heading font-bold text-[var(--brand-fg)] flex items-center gap-1.5 text-[0.78rem]">
+                      <span className="w-2 h-2 rounded-full bg-[var(--brand-aqua)]" />
+                      Polymorphic Data Contracts
+                    </span>
+                    <p className="text-[0.7rem] text-[var(--brand-text-secondary)] leading-relaxed">
+                      MCP tools return structured visualization intent rather than pre-rendered pixels or rigid DOM nodes, enabling true cross-platform presentation agility.
+                    </p>
                   </div>
-                  <pre className="bg-[#0a0a0b] border-2 border-[#000000] rounded-[8px] p-3.5 font-mono text-[0.72rem] leading-relaxed overflow-x-auto m-0 text-[#6ee7b7]">
-                    {JSON.stringify(mcpWire?.response ?? wireResponseObj, null, 2)}
-                  </pre>
+
+                  <div className="space-y-1.5 p-3.5 rounded-[12px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)]">
+                    <span className="font-heading font-bold text-[var(--brand-fg)] flex items-center gap-1.5 text-[0.78rem]">
+                      <span className="w-2 h-2 rounded-full bg-[#0e84f1]" />
+                      Capability &amp; Fallback Resolution
+                    </span>
+                    <p className="text-[0.7rem] text-[var(--brand-text-secondary)] leading-relaxed">
+                      If an edge client or constrained surface lacks support for complex visualizations, it gracefully degrades to native summary representations.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5 p-3.5 rounded-[12px] border-2 border-[var(--brand-border-subtle)] bg-[var(--brand-bg)]">
+                    <span className="font-heading font-bold text-[var(--brand-fg)] flex items-center gap-1.5 text-[0.78rem]">
+                      <span className="w-2 h-2 rounded-full bg-[#9461fb]" />
+                      Reactive Multi-Surface Sync
+                    </span>
+                    <p className="text-[0.7rem] text-[var(--brand-text-secondary)] leading-relaxed">
+                      Upstream schema mutations or visual type switches instantly update both native rendering pipelines in real-time lockstep.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
