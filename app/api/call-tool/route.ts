@@ -1,29 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { z } from "zod";
+import { checkRateLimit } from "@/lib/rate-limiter";
 
 export const runtime = "nodejs";
 
 const CallToolRequestSchema = z.object({
   merchant_id: z
     .string({ message: "merchant_id must be a string" })
-    .min(1, "merchant_id cannot be empty"),
+    .min(1, "merchant_id cannot be empty")
+    .max(64, "merchant_id too long"),
   focus_area: z.enum(["inventory", "pricing", "trend"], {
     message: "focus_area must be one of: 'inventory', 'pricing', 'trend'",
   }),
   visualization_type: z
     .enum(["auto", "trend_line", "bar_comparison", "progress_gauge", "breakdown_distribution"])
     .optional(),
-  query: z.string().optional(),
-  category: z.string().optional(),
-  scenario: z.string().optional(),
-  time_horizon: z.string().optional(),
+  query: z.string().max(250, "Query cannot exceed 250 characters").optional(),
+  category: z.string().max(64, "Category cannot exceed 64 characters").optional(),
+  scenario: z.string().max(250, "Scenario cannot exceed 250 characters").optional(),
+  time_horizon: z.string().max(32, "Time horizon cannot exceed 32 characters").optional(),
 });
 
 export async function POST(req: NextRequest) {
   let client: Client | null = null;
 
   try {
+    // 1. IP-Based Sliding Window Rate Limiting (12 requests/min per IP)
+    const forwardedFor = req.headers.get("x-forwarded-for");
+    const realIp = req.headers.get("x-real-ip");
+    const clientIp = (forwardedFor ? forwardedFor.split(",")[0].trim() : realIp) || "127.0.0.1";
+
+    const rateLimit = checkRateLimit(clientIp, 12, 60000);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          error: `429 Too Many Requests: Rate limit exceeded. Please wait ${rateLimit.resetSeconds}s before sending more queries.`,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.resetSeconds),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": String(rateLimit.remaining),
+            "X-RateLimit-Reset": String(rateLimit.resetSeconds),
+          },
+        }
+      );
+    }
+
+    // 2. Validate JSON Body & String Length Bounds
     let body: unknown;
     try {
       body = await req.json();
@@ -160,7 +186,13 @@ export async function POST(req: NextRequest) {
           response: mcpWireResponse,
         },
       },
-      { status: 200 }
+      {
+        status: 200,
+        headers: {
+          "X-RateLimit-Limit": String(rateLimit.limit),
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+        },
+      }
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal server error occurred";
