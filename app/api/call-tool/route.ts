@@ -191,6 +191,7 @@ export async function POST(req: NextRequest) {
         headers: {
           "X-RateLimit-Limit": String(rateLimit.limit),
           "X-RateLimit-Remaining": String(rateLimit.remaining),
+          "X-Gemini-Key-Present": String(Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)),
         },
       }
     );
