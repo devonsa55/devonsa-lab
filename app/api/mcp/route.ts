@@ -150,7 +150,7 @@ Output ONLY a single valid JSON object matching this structure:
 
     const prompt = `Generate a realistic merchant insight snippet with visualization "${targetVisType}" based on:\n${promptDetails}`;
 
-    const modelsToTry = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
+    const modelsToTry = ["gemini-2.0-flash-lite-001", "gemini-2.0-flash-001", "gemini-1.5-flash-001"];
     for (const modelName of modelsToTry) {
       try {
         const timeoutPromise = new Promise<never>((_, reject) =>
@@ -164,7 +164,6 @@ Output ONLY a single valid JSON object matching this structure:
             systemInstruction,
             temperature: 0.3,
             maxOutputTokens: 600,
-            responseMimeType: "application/json",
           },
         });
 
