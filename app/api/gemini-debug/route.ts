@@ -11,52 +11,57 @@ export async function GET() {
 
   const results: Record<string, unknown> = { keyPrefix: apiKey.slice(0, 8) + "..." };
 
-  // Test listing models on v1beta
+  // List models with their supported methods (v1beta)
   try {
     const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=10`
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}&pageSize=50`
     );
     const data = await r.json();
-    results.v1beta_list_status = r.status;
-    results.v1beta_models = (data.models || []).map((m: { name: string }) => m.name).slice(0, 15);
+    results.v1beta_models_full = (data.models || []).map((m: { name: string; supportedGenerationMethods?: string[] }) => ({
+      name: m.name,
+      methods: m.supportedGenerationMethods,
+    }));
     if (data.error) results.v1beta_list_error = data.error;
   } catch (e) {
     results.v1beta_list_error = String(e);
   }
 
-  // Test listing models on v1
-  try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models?key=${apiKey}&pageSize=10`
-    );
-    const data = await r.json();
-    results.v1_list_status = r.status;
-    results.v1_models = (data.models || []).map((m: { name: string }) => m.name).slice(0, 15);
-    if (data.error) results.v1_list_error = data.error;
-  } catch (e) {
-    results.v1_list_error = String(e);
-  }
+  // Try generateContent on each candidate model
+  const candidates = [
+    "gemini-2.5-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-flash-lite-latest",
+    "gemini-flash-latest",
+    "gemini-2.5-flash-lite-preview-06-17",
+    "gemini-2.5-flash-preview-05-20",
+  ];
 
-  // Quick generate test on v1 with gemini-1.5-flash
-  try {
-    const r = await fetch(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: "Say hello in one word." }] }],
-          generationConfig: { maxOutputTokens: 10 },
-        }),
+  const generateResults: Record<string, unknown> = {};
+  for (const model of candidates) {
+    for (const apiVer of ["v1beta", "v1"]) {
+      try {
+        const r = await fetch(
+          `https://generativelanguage.googleapis.com/${apiVer}/models/${model}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{ role: "user", parts: [{ text: "Say one word: hello." }] }],
+              generationConfig: { maxOutputTokens: 10 },
+            }),
+          }
+        );
+        const data = await r.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        generateResults[`${apiVer}/${model}`] = r.ok
+          ? { status: r.status, text }
+          : { status: r.status, error: data.error?.message?.slice(0, 150) };
+      } catch (e) {
+        generateResults[`${apiVer}/${model}`] = { error: String(e) };
       }
-    );
-    const data = await r.json();
-    results.v1_generate_status = r.status;
-    results.v1_generate_text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (data.error) results.v1_generate_error = data.error;
-  } catch (e) {
-    results.v1_generate_error = String(e);
+    }
   }
+  results.generate_tests = generateResults;
 
-  return NextResponse.json(results);
+  return NextResponse.json(results, { status: 200 });
 }
