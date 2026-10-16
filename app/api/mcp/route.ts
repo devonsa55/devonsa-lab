@@ -149,7 +149,7 @@ Output ONLY a single valid JSON object matching this structure:
 
     const prompt = `Generate a realistic merchant insight snippet with visualization "${targetVisType}" based on:\n${promptDetails}`;
 
-    const modelsToTry = ["gemini-2.5-flash", "gemini-flash"];
+    const modelsToTry = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
 
     for (const modelName of modelsToTry) {
       try {
