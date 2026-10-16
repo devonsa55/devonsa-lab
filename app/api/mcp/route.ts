@@ -101,6 +101,7 @@ async function generateMerchantInsight(params: GenerateParams): Promise<Merchant
   }
 
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  let lastErrorMsg = "";
 
   if (apiKey) {
     const ai = new GoogleGenAI({ apiKey });
@@ -150,7 +151,6 @@ Output ONLY a single valid JSON object matching this structure:
     const prompt = `Generate a realistic merchant insight snippet with visualization "${targetVisType}" based on:\n${promptDetails}`;
 
     const modelsToTry = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
-
     for (const modelName of modelsToTry) {
       try {
         const timeoutPromise = new Promise<never>((_, reject) =>
@@ -189,8 +189,12 @@ Output ONLY a single valid JSON object matching this structure:
         insightCache.set(cacheKey, { insight: validated, timestamp: Date.now() });
         return validated;
       } catch (err) {
+        lastErrorMsg = err instanceof Error ? err.message : String(err);
         console.warn(`Model ${modelName} call failed, trying fallback:`, err);
       }
+    }
+    if (lastErrorMsg) {
+      console.error("All models failed. Last error:", lastErrorMsg);
     }
   }
 
@@ -265,6 +269,10 @@ Output ONLY a single valid JSON object matching this structure:
       },
       action: "Recalibrate Pricing Rules",
     };
+  }
+
+  if (lastErrorMsg) {
+    fallback.detail = `[API: ${lastErrorMsg.slice(0, 100)}] ${fallback.detail}`.slice(0, 240);
   }
 
   insightCache.set(cacheKey, { insight: fallback, timestamp: Date.now() });
