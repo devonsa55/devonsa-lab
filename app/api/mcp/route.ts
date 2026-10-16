@@ -1,6 +1,5 @@
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
-import { GoogleGenAI } from "@google/genai";
 
 const CategoryDataPointSchema = z.object({
   label: z.string().max(40).describe("Category or entity label"),
@@ -104,7 +103,8 @@ async function generateMerchantInsight(params: GenerateParams): Promise<Merchant
   let lastErrorMsg = "";
 
   if (apiKey) {
-    const ai = new GoogleGenAI({ apiKey });
+    const geminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models";
+    const modelsToTry = ["gemini-2.0-flash-lite", "gemini-2.0-flash", "gemini-1.5-flash"];
 
     const systemInstruction = `You are a specialized retail and merchant analytics intelligence engine.
 Synthesize a realistic, highly specific merchant insight and craft the exact requested visualization widget ("${targetVisType}").
@@ -127,7 +127,7 @@ Output ONLY a single valid JSON object matching this structure:
   "chart": [5 to 8 numbers],
   "visualization": {
     "type": "${targetVisType}",
-    "title": "Title for widget (e.g. '7-Day Price Trajectory' or 'Brand Price Benchmark' or 'Warehouse Safety Buffer' or 'Channel GMV Breakdown')",
+    "title": "Title for widget",
     "series": [numbers] (if trend_line),
     "categories": [{"label": "Name", "value": number, "formattedValue": "$XX.XX", "highlight": boolean}] (if bar_comparison),
     "gauge": {"current": number, "target": number, "unit": "%", "status": "safe"|"warning"|"critical"} (if progress_gauge),
@@ -150,26 +150,41 @@ Output ONLY a single valid JSON object matching this structure:
 
     const prompt = `Generate a realistic merchant insight snippet with visualization "${targetVisType}" based on:\n${promptDetails}`;
 
-    const modelsToTry = ["gemini-2.0-flash-lite-001", "gemini-2.0-flash-001", "gemini-1.5-flash-001"];
+    const requestBody = {
+      system_instruction: {
+        parts: [{ text: systemInstruction }],
+      },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.3,
+        maxOutputTokens: 600,
+      },
+    };
+
+
     for (const modelName of modelsToTry) {
       try {
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Gemini upstream timeout (8000ms)")), 8000)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+        const res = await fetch(
+          `${geminiBaseUrl}/${modelName}:generateContent?key=${apiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal,
+          }
         );
+        clearTimeout(timeoutId);
 
-        const generatePromise = ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: {
-            systemInstruction,
-            temperature: 0.3,
-            maxOutputTokens: 600,
-          },
-        });
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+        }
 
-        const response = await Promise.race([generatePromise, timeoutPromise]);
-
-        const rawText = response.text?.trim() || "";
+        const data = await res.json();
+        const rawText: string = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? "";
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         const jsonString = jsonMatch ? jsonMatch[0] : rawText;
         const parsed = JSON.parse(jsonString);
@@ -189,11 +204,11 @@ Output ONLY a single valid JSON object matching this structure:
         return validated;
       } catch (err) {
         lastErrorMsg = err instanceof Error ? err.message : String(err);
-        console.warn(`Model ${modelName} call failed, trying fallback:`, err);
+        console.warn(`Model ${modelName} failed:`, lastErrorMsg);
       }
     }
     if (lastErrorMsg) {
-      console.error("All models failed. Last error:", lastErrorMsg);
+      console.error("All Gemini models failed. Last error:", lastErrorMsg);
     }
   }
 
