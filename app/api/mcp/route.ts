@@ -104,7 +104,8 @@ async function generateMerchantInsight(params: GenerateParams): Promise<Merchant
 
   if (apiKey) {
     const geminiBaseUrl = "https://generativelanguage.googleapis.com/v1beta/models";
-    const modelsToTry = ["gemini-2.5-flash-lite", "gemini-2.5-flash"];
+    // Use rolling aliases: pinned IDs (e.g. gemini-2.5-*) get retired for new users and 404
+    const modelsToTry = ["gemini-flash-lite-latest", "gemini-flash-latest"];
 
     const systemInstruction = `You are a specialized retail and merchant analytics intelligence engine.
 Synthesize a realistic, highly specific merchant insight and craft the exact requested visualization widget ("${targetVisType}").
@@ -157,7 +158,7 @@ Output ONLY a single valid JSON object matching this structure:
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
         temperature: 0.3,
-        maxOutputTokens: 600,
+        maxOutputTokens: 2048,
       },
     };
 
